@@ -163,9 +163,9 @@ curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
       },
       "header_mobile_items": {
         "top":    {"top_left":[],"top_left_center":[],"top_center":[],"top_right_center":[],"top_right":[]},
-        "main":   {"main_left":["logo"],"main_left_center":[],"main_center":[],"main_right_center":[],"main_right":["mobile-trigger","cart"]},
+        "main":   {"main_left":["mobile-logo"],"main_left_center":[],"main_center":[],"main_right_center":[],"main_right":["popup-toggle","cart"]},
         "bottom": {"bottom_left":[],"bottom_left_center":[],"bottom_center":[],"bottom_right_center":[],"bottom_right":[]},
-        "popup":  {"popup_content":["navigation"]}
+        "popup":  {"popup_content":["mobile-navigation"]}
       },
       "primary_navigation_style": "underline",
       "header_sticky": true,
@@ -373,3 +373,5 @@ curl -s "${BRIDGE_URL}/render?url=/" -u "claude-bot:${BRIDGE_PASS}" \
 8. **`footer_items` keys use row prefixes.** The column keys are `top_1`, `middle_1`, `bottom_1` — NOT `1`, `2`, `3`. Using bare numbers silently fails and renders an empty footer.
 
 9. **`header_desktop_items` keys also use row prefixes.** The column keys are `main_left`, `main_right`, `top_left`, `bottom_center`, etc. — NOT `left`, `right`. Using bare direction names silently fails and renders an empty header.
+
+10. **Mobile header component names differ from desktop.** The hamburger trigger is `popup-toggle` (NOT `mobile-trigger`). The mobile logo is `mobile-logo` (NOT `logo`). The mobile popup nav is `mobile-navigation` (NOT `navigation`). These map to template files in `template-parts/header/`.
