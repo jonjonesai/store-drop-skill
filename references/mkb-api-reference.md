@@ -1,6 +1,6 @@
 # Mega Kadence Bridge — API Reference
 
-> Quick-reference for every MKB v1.0.2 endpoint used by this skill. Full source at [github.com/jonjonesai/mega-kadence-bridge](https://github.com/jonjonesai/mega-kadence-bridge).
+> Quick-reference for every MKB v1.0.3 endpoint used by this skill. Full source at [github.com/jonjonesai/mega-kadence-bridge](https://github.com/jonjonesai/mega-kadence-bridge).
 
 ## Auth
 
@@ -241,6 +241,19 @@ curl -s -X POST "${BRIDGE_URL}/pages/ensure" \
 ### GET /menus
 
 List all navigation menus.
+
+### POST /posts/{id}/normalize-blocks
+
+Re-serializes block content through WordPress's block parser. Eliminates "Attempt Block Recovery" prompts in wp-admin by normalizing saved markup to match what the editor's save() functions produce.
+
+```bash
+curl -s -X POST "${BRIDGE_URL}/posts/${PAGE_ID}/normalize-blocks" \
+  -u "claude-bot:${BRIDGE_PASS}"
+```
+
+Response: `{ "success": true, "id": 42, "changed": true, "original_length": 8759, "new_length": 8760 }` or `{ "changed": false, "message": "Content already normalized." }` if already clean.
+
+**Call this on every Kadence-block page after creation.** Legal pages (heading + paragraph only) don't need it.
 
 ### POST /menus/create
 

@@ -14,11 +14,29 @@ You are the world's foremost operator of Kadence. You wield the Kadence WordPres
       ↓ HTTPS + HTTP Basic Auth
 [Hostinger Server]
   WordPress + Kadence + WooCommerce
-  Mega Kadence Bridge Plugin (v1.0.0)
+  Mega Kadence Bridge Plugin (v1.0.3+)
     /wp-json/mega-kadence-bridge/v1/*
 ```
 
 You control the site through the bridge API. Every operation follows the change workflow. Every change is snapshotted and reversible.
+
+## Required Plugins
+
+Before running deploy-pod-store, all of these must be installed and activated:
+
+| Plugin | Required | Why |
+|---|---|---|
+| Kadence Theme | Yes | Base theme |
+| Kadence Theme Pro | Yes | Transparent header, header/footer builder features |
+| Kadence Blocks | Yes | Core blocks: rowlayout, column, advancedheading, advancedbtn, singlebtn |
+| Kadence Blocks Pro | Yes | `kadence/productcarousel` for Featured Products section |
+| WooCommerce | Yes | Products, shop page, cart, checkout |
+| Mega Kadence Bridge | Yes | v1.0.3+ (REST API, normalize-blocks endpoint) |
+| Fluent Forms | Yes | Newsletter + contact forms |
+| Rank Math SEO | Yes | SEO meta, sitemaps, schema markup |
+| LiteSpeed Cache | Yes | Cache management on Hostinger |
+
+If any required plugin is missing, stop and instruct the student to install it before proceeding.
 
 ---
 

@@ -201,13 +201,26 @@ LOGO_ID=$(echo "$LOGO_RESPONSE" | jq -r '.id')
 
 If no logo was provided, `LOGO_ID` stays empty. The build-nav-menus recipe handles both cases — logo image or text-based site title.
 
-### Step 15: Flush all caches
+### Step 15: Normalize blocks on all content pages
+
+After creating pages, normalize their block content to eliminate "Attempt Block Recovery" prompts in wp-admin. This roundtrips the content through WordPress's block parser, ensuring saved markup matches what the editor expects.
+
+```bash
+for PAGE_ID in ${HOME_ID} ${ABOUT_ID} ${CONTACT_ID}; do
+  curl -s -X POST "${BRIDGE_URL}/posts/${PAGE_ID}/normalize-blocks" \
+    -u "claude-bot:${BRIDGE_PASS}"
+done
+```
+
+Legal pages use standard WordPress blocks (heading + paragraph) which don't need normalization.
+
+### Step 16: Flush all caches
 
 ```bash
 curl -s -X POST "${BRIDGE_URL}/cache/flush" -u "claude-bot:${BRIDGE_PASS}"
 ```
 
-### Step 16: Verify every page + report
+### Step 17: Verify every page + report
 
 Execute `recipes/verify-deployment.md` with full site verification.
 
