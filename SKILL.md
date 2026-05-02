@@ -175,12 +175,22 @@ Full endpoint documentation: `references/mkb-api-reference.md`
 | Returns & Refunds | `boilerplate/returns-and-refunds.md` | POD-specific return policy |
 | Cookie Policy | `boilerplate/cookie-policy.md` | Optional, jurisdiction-dependent |
 
+### Golden Templates
+
+| Template | File | Purpose |
+|---|---|---|
+| Homepage | `templates/homepage.html` | 6-section homepage block content (proven valid) |
+| About | `templates/about.html` | 4-section about page block content (proven valid) |
+| Contact | `templates/contact.html` | 3-section contact page block content (proven valid) |
+
+**Use these templates.** Read the template, replace variable text (brand name, copy, etc.) with intake answers, send via bridge API, then call `/posts/{id}/normalize-blocks`. This is the fastest path to zero block recovery warnings.
+
 ### References
 
 | Reference | File | Purpose |
 |---|---|---|
 | MKB API | `references/mkb-api-reference.md` | Every bridge endpoint with examples |
-| Block Patterns | `references/kadence-block-patterns.md` | Proven Kadence block markup snippets |
+| Block Patterns | `references/kadence-block-patterns.md` | Block format rules + attribute reference |
 | Font Pairings | `references/tone-font-pairings.md` | 10 tone-to-font mappings |
 | Hostinger Gotchas | `references/hostinger-gotchas.md` | Hosting-specific issues and fixes |
 

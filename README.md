@@ -71,8 +71,13 @@ mega-kadence-skill/
 │   ├── terms-of-service.md
 │   ├── returns-and-refunds.md
 │   └── cookie-policy.md
+├── templates/
+│   ├── homepage.html               Proven-valid homepage block content
+│   ├── about.html                  Proven-valid about page block content
+│   ├── contact.html                Proven-valid contact page block content
+│   └── README.md                   Template usage guide
 ├── references/
-│   ├── mkb-api-reference.md        MKB v1.0.0 endpoint cheat sheet
+│   ├── mkb-api-reference.md        MKB v1.0.3 endpoint cheat sheet
 │   ├── kadence-block-patterns.md   Proven block markup snippets
 │   ├── tone-font-pairings.md       Font pairing matrix
 │   └── hostinger-gotchas.md        Hosting-specific fixes
