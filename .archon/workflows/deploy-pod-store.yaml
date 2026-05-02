@@ -59,36 +59,29 @@ nodes:
 
   - id: intake
     depends_on: [preflight]
-    prompt: |
-      You are building a POD store using the Mega Kadence Skill.
-
-      Read the intake wizard from INTAKE.md in this repo. Ask the student
-      the 6 questions one at a time, conversationally.
-
-      After all 6 answers, save the responses as a JSON file at
-      $ARTIFACTS_DIR/intake.json with these exact keys:
+    bash: |
+      # Test intake — hardcoded values for pipeline validation
+      # Replace this node with the interactive prompt node for production use
+      mkdir -p $ARTIFACTS_DIR 2>/dev/null || true
+      ARTIFACTS=${ARTIFACTS_DIR:-/tmp/archon-artifacts}
+      mkdir -p "$ARTIFACTS"
+      cat > "$ARTIFACTS/intake.json" << 'INTAKE_EOF'
       {
-        "brand_name": "...",
-        "niche": "...",
-        "mode": "light" or "dark",
-        "color": "#hex or color name or 'auto'",
-        "categories": "comma-separated list",
-        "logo": "path/url or 'skip'"
+        "brand_name": "CuteMerch",
+        "niche": "cute animal illustrations on everyday products",
+        "mode": "light",
+        "color": "#FF1493",
+        "categories": "T-Shirts, Mugs, Tote Bags",
+        "logo": "skip",
+        "tone": "Warm & Friendly",
+        "heading_font": "Fraunces",
+        "body_font": "Nunito",
+        "tagline": "Adorable designs for everyday life"
       }
-
-      Also infer and add:
-      - "tone": inferred from niche using references/tone-font-pairings.md
-      - "heading_font": looked up from tone
-      - "body_font": looked up from tone
-      - "tagline": AI-generated, max 7 words
-    interactive: true
-    output_format:
-      type: object
-      properties:
-        brand_name: { type: string }
-        niche: { type: string }
-        mode: { type: string, enum: [light, dark] }
-      required: [brand_name, niche, mode]
+      INTAKE_EOF
+      echo "INTAKE SAVED to $ARTIFACTS/intake.json"
+      cat "$ARTIFACTS/intake.json"
+    timeout: 5000
 
   # ================================================================
   # PHASE 2: THEME CONFIG — palette, fonts, dark mode overrides
