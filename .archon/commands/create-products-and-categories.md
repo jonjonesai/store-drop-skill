@@ -1,5 +1,7 @@
 # Create Products and Categories
 
+**Credentials:** Read bridge credentials from `~/kadence-skill/mega-kadence-skill/.env` or `/tmp/archon-bridge/.env`. Source the file to get BRIDGE_URL, BRIDGE_USER, BRIDGE_PASS, BRIDGE_SITE. Use HTTP Basic Auth with BRIDGE_USER:BRIDGE_PASS for all API calls.
+
 Read the intake answers from `$ARTIFACTS_DIR/intake.json`.
 
 ## Steps
