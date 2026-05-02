@@ -99,9 +99,11 @@ curl -s -X POST "${BRIDGE_URL}/option/blogdescription" \
 
 Execute `recipes/set-palette.md` with `mode` and `primary_color` from intake.
 
-### Step 2b: Apply dark mode text overrides (dark mode ONLY)
+### Step 2b: Apply dark mode overrides (dark mode ONLY)
 
-**Skip this step for light mode.** For dark mode, Kadence defaults text to near-black which is invisible on dark backgrounds. Execute `recipes/set-palette.md` Step 3 AND Step 3b. Then verify these are all set:
+**Skip this step for light mode.** For dark mode, you MUST do two things:
+
+**A) Set background theme_mods:**
 
 ```bash
 curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
@@ -111,17 +113,26 @@ curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
     "mods": {
       "site_background": {"desktop": {"color": "palette8"}},
       "content_background": {"desktop": {"color": ""}},
-      "brand_typography_color": {"color": "palette9"},
-      "heading_color": {"color": "palette3"},
-      "base_font_color": {"color": "palette4"},
-      "heading_font_color": {"color": "palette3"},
-      "link_color": {"color": "palette1", "hover": "palette2"},
       "mobile_navigation_color": {"color": "palette9", "hover": "palette1", "active": "palette1", "background": "palette8", "divider": "palette6"}
     }
   }'
 ```
 
-If ANY of these are missing on a dark mode site, text will be invisible.
+**B) Inject dark mode CSS via `POST /css`.** Kadence does NOT have theme_mods for body text color, heading color, or site title color — it relies on palette CSS custom properties. But several wrapper elements (entry-content-wrap, content-area, site-title) inherit or override with dark defaults. This CSS forces all text light on dark backgrounds:
+
+```bash
+curl -s -X POST "${BRIDGE_URL}/css" \
+  -u "claude-bot:${BRIDGE_PASS}" \
+  -H "Content-Type: application/json" \
+  -d '{"css": "body, .entry-content, .entry-content-wrap, p, h1, h2, h3, h4, h5, h6 { color: var(--global-palette4) !important; } h1, h2, h3, h4, h5, h6, .kt-adv-heading, .kt-blocks-info-box-title { color: var(--global-palette3) !important; } .site-title, .site-title a, .site-branding .brand, .site-branding a.brand { color: var(--global-palette9) !important; } .site-header-wrap, #masthead { background: var(--global-palette8) !important; } .entry-content-wrap { padding: 0 !important; background: transparent !important; } .content-area { margin-top: 0 !important; margin-bottom: 0 !important; } a { color: var(--global-palette1); } a:hover { color: var(--global-palette2); }"}'
+```
+
+This CSS does three things:
+1. Forces ALL body text to palette4 (light gray) and headings to palette3 (white)
+2. Forces the site title / text logo to palette9 (white)
+3. Removes the entry-content-wrap padding and content-area margin that create white gaps
+
+**Without this CSS, dark mode sites will have invisible text and white gaps.**
 
 ### Step 3: Apply fonts by tone
 
@@ -279,9 +290,11 @@ done
 
 Legal pages use standard WordPress blocks (heading + paragraph) which don't need normalization.
 
-### Step 15b: Inject mobile trigger CSS
+### Step 15b: Inject mobile trigger + drawer CSS
 
-Theme_mods alone don't reliably style the mobile trigger on transparent header pages. Inject custom CSS to force visibility:
+Theme_mods alone don't reliably style the mobile trigger or drawer. Inject custom CSS.
+
+**For LIGHT mode:**
 
 ```bash
 curl -s -X POST "${BRIDGE_URL}/css" \
@@ -290,7 +303,16 @@ curl -s -X POST "${BRIDGE_URL}/css" \
   -d '{"css": ".mobile-toggle-open-container .menu-toggle-open, .mobile-toggle-open-container .menu-toggle-open:focus { background: var(--global-palette1) !important; color: var(--global-palette9) !important; border: none !important; border-radius: 4px !important; padding: 8px 10px !important; } .mobile-toggle-open-container .menu-toggle-open:hover { background: var(--global-palette2) !important; } .mobile-toggle-open-container .menu-toggle-open .menu-toggle-icon svg { fill: var(--global-palette9) !important; } .mobile-navigation a, .drawer-navigation a { color: var(--global-palette3) !important; } .mobile-navigation a:hover, .drawer-navigation a:hover { color: var(--global-palette1) !important; } .popup-drawer .drawer-inner, .mobile-drawer-content { background: var(--global-palette9) !important; } .popup-drawer .drawer-header .menu-toggle-close { color: var(--global-palette3) !important; }"}'
 ```
 
-This ensures the pink hamburger trigger and readable drawer nav on all devices.
+**For DARK mode:**
+
+```bash
+curl -s -X POST "${BRIDGE_URL}/css" \
+  -u "claude-bot:${BRIDGE_PASS}" \
+  -H "Content-Type: application/json" \
+  -d '{"css": ".mobile-toggle-open-container .menu-toggle-open, .mobile-toggle-open-container .menu-toggle-open:focus { background: var(--global-palette1) !important; color: var(--global-palette9) !important; border: none !important; border-radius: 4px !important; padding: 8px 10px !important; } .mobile-toggle-open-container .menu-toggle-open:hover { background: var(--global-palette2) !important; } .mobile-toggle-open-container .menu-toggle-open .menu-toggle-icon svg { fill: var(--global-palette9) !important; } .mobile-navigation a, .drawer-navigation a { color: var(--global-palette9) !important; } .mobile-navigation a:hover, .drawer-navigation a:hover { color: var(--global-palette1) !important; } .popup-drawer .drawer-inner, .mobile-drawer-content { background: var(--global-palette8) !important; } .popup-drawer .drawer-header .menu-toggle-close { color: var(--global-palette9) !important; }"}'
+```
+
+**The difference:** Light mode drawer = white bg + dark text. Dark mode drawer = dark bg + white text. The trigger button is the same (accent bg + white icon) in both modes.
 
 ### Step 16: Flush all caches
 

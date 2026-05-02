@@ -139,28 +139,20 @@ curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
 
 **Gotcha:** `content_background` must be empty string for dark mode. If set to a color, it creates a white/light content box that breaks the dark theme.
 
-### Step 3b: Set text colors for dark mode
+### Step 3b: Inject dark mode text CSS
 
-For dark mode, ALL text-bearing elements must use light colors. Kadence defaults many elements to dark text which is invisible on dark backgrounds:
+Kadence does NOT have theme_mods for body text color or site title color — there are no keys like `brand_typography_color` or `heading_color` or `base_font_color`. These do not exist. Kadence relies on the palette CSS custom properties, but several wrapper elements inherit dark defaults that override the palette.
+
+**You MUST inject custom CSS via `POST /css` to force all text light:**
 
 ```bash
-curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
+curl -s -X POST "${BRIDGE_URL}/css" \
   -u "claude-bot:${BRIDGE_PASS}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "mods": {
-      "brand_typography_color": {"color": "palette9"},
-      "heading_color": {"color": "palette3"},
-      "base_font_color": {"color": "palette4"},
-      "heading_font_color": {"color": "palette3"},
-      "link_color": {"color": "palette1", "hover": "palette2"},
-      "transparent_header_site_title_color": {"color": "palette9"},
-      "transparent_header_navigation_color": {"color": "palette9", "hover": "palette1", "active": "palette1"}
-    }
-  }'
+  -d '{"css": "body, .entry-content, .entry-content-wrap, p, h1, h2, h3, h4, h5, h6 { color: var(--global-palette4) !important; } h1, h2, h3, h4, h5, h6, .kt-adv-heading, .kt-blocks-info-box-title { color: var(--global-palette3) !important; } .site-title, .site-title a, .site-branding .brand, .site-branding a.brand { color: var(--global-palette9) !important; } .site-header-wrap, #masthead { background: var(--global-palette8) !important; } .entry-content-wrap { padding: 0 !important; background: transparent !important; } .content-area { margin-top: 0 !important; margin-bottom: 0 !important; } a { color: var(--global-palette1); } a:hover { color: var(--global-palette2); }"}'
 ```
 
-**Critical for dark mode:** Without these overrides, the site title (text logo), headings, body text, and nav links all default to near-black and are invisible on dark backgrounds.
+**Without this CSS, dark mode sites WILL have invisible text and white gaps. There is no theme_mod alternative.**
 
 ### Step 4: Flush cache
 
