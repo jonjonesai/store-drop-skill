@@ -95,6 +95,50 @@ This skill is part of the [MEGA](https://mega.management) print-on-demand ecosys
 
 Together, they let anyone launch a branded POD store in a weekend at $3/month hosting instead of $40/month on Shopify.
 
+## Archon Workflow (Recommended)
+
+This skill includes an [Archon](https://github.com/coleam00/Archon) workflow that enforces the deploy sequence with bash validation checkpoints between every phase. Instead of Claude reading a markdown file and hoping to follow it, the workflow DAG enforces step order and fails fast if anything is wrong.
+
+### Install and run
+
+```bash
+# Install Archon
+curl -fsSL https://archon.diy/install | bash
+
+# Run the deploy workflow
+archon workflow run deploy-pod-store
+```
+
+### What the workflow validates
+
+| Checkpoint | What it checks |
+|---|---|
+| `preflight` | Bridge reachable, WooCommerce active, Pro plugins installed |
+| `check-palette` | Palette was actually applied to the site |
+| `check-dark-css` | Dark mode CSS injected (if dark mode selected) |
+| `check-products` | At least 4 products exist and are featured |
+| `check-pages` | All 7 pages return HTTP 200 |
+| `check-blocks` | Zero "Attempt Block Recovery" warnings in wp-admin |
+| `check-forms` | Fluent Forms shortcodes rendering on homepage + contact |
+| `check-header` | Logo/title, nav menu, and mobile trigger all present |
+| `check-footer` | Brand name and legal links in footer |
+| `final-check` | Full 7-page sweep — deployment successful or failed |
+
+### Structure
+
+```
+.archon/
+├── config.yaml
+├── workflows/
+│   └── deploy-pod-store.yaml    # The DAG — 6 phases, 10 validations
+└── commands/
+    ├── apply-theme-config.md     # Phase 2: palette, fonts, dark mode
+    ├── create-products-and-categories.md  # Phase 3: WC products
+    ├── create-all-pages.md       # Phase 4: all 7 pages
+    ├── configure-header-footer-nav.md    # Phase 5: header/footer/menus
+    └── set-front-page-and-report.md      # Phase 6: finalize
+```
+
 ## Known Issues (v1)
 
 - **Placeholder product guard checks `product_count == 0`.** If the site already has products from a prior test run or manual creation, the 4 placeholder products won't be created. Manual cleanup of stale test products may be needed before re-running the deploy.

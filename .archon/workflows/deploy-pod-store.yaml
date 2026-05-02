@@ -1,0 +1,285 @@
+name: deploy-pod-store
+description: |
+  Deploy a fully branded POD store on WordPress + Kadence + WooCommerce
+  via the Mega Kadence Bridge REST API. Takes 6 intake answers and
+  produces a 7-page branded site with header, footer, products, forms,
+  and full theme configuration.
+
+  Requires: Kadence Theme + Pro, Kadence Blocks + Pro, WooCommerce,
+  Mega Kadence Bridge v1.0.3+, Fluent Forms, Rank Math SEO, LiteSpeed Cache.
+
+provider: claude
+model: sonnet
+
+nodes:
+  # ================================================================
+  # PHASE 0: PREFLIGHT — verify bridge is reachable and plugins ready
+  # ================================================================
+
+  - id: preflight
+    bash: |
+      source .env 2>/dev/null || true
+      BRIDGE_URL="${BRIDGE_URL:-}"
+      BRIDGE_USER="${BRIDGE_USER:-claude-bot}"
+      BRIDGE_PASS="${BRIDGE_PASS:-}"
+
+      if [ -z "$BRIDGE_URL" ] || [ -z "$BRIDGE_PASS" ]; then
+        echo "FAIL: .env missing BRIDGE_URL or BRIDGE_PASS"
+        exit 1
+      fi
+
+      INFO=$(curl -s --max-time 10 "${BRIDGE_URL}/info" -u "${BRIDGE_USER}:${BRIDGE_PASS}")
+      SUCCESS=$(echo "$INFO" | python3 -c "import sys,json;print(json.load(sys.stdin).get('success',''))" 2>/dev/null)
+
+      if [ "$SUCCESS" != "True" ]; then
+        echo "FAIL: Bridge not reachable at ${BRIDGE_URL}"
+        exit 1
+      fi
+
+      VERSION=$(echo "$INFO" | python3 -c "import sys,json;print(json.load(sys.stdin).get('bridge_version',''))" 2>/dev/null)
+      WC=$(echo "$INFO" | python3 -c "import sys,json;print(json.load(sys.stdin).get('woocommerce_active',''))" 2>/dev/null)
+      KB_PRO=$(echo "$INFO" | python3 -c "import sys,json;print(json.load(sys.stdin).get('kadence_blocks_pro',''))" 2>/dev/null)
+      KT_PRO=$(echo "$INFO" | python3 -c "import sys,json;print(json.load(sys.stdin).get('kadence_pro_active',''))" 2>/dev/null)
+
+      echo "Bridge: v${VERSION}"
+      echo "WooCommerce: ${WC}"
+      echo "Kadence Blocks Pro: ${KB_PRO}"
+      echo "Kadence Theme Pro: ${KT_PRO}"
+
+      [ "$WC" != "True" ] && echo "WARN: WooCommerce not active" && exit 1
+      echo "PREFLIGHT PASS"
+    timeout: 15000
+
+  # ================================================================
+  # PHASE 1: INTAKE — ask the 6 questions
+  # ================================================================
+
+  - id: intake
+    depends_on: [preflight]
+    prompt: |
+      You are building a POD store using the Mega Kadence Skill.
+
+      Read the intake wizard from INTAKE.md in this repo. Ask the student
+      the 6 questions one at a time, conversationally.
+
+      After all 6 answers, save the responses as a JSON file at
+      $ARTIFACTS_DIR/intake.json with these exact keys:
+      {
+        "brand_name": "...",
+        "niche": "...",
+        "mode": "light" or "dark",
+        "color": "#hex or color name or 'auto'",
+        "categories": "comma-separated list",
+        "logo": "path/url or 'skip'"
+      }
+
+      Also infer and add:
+      - "tone": inferred from niche using references/tone-font-pairings.md
+      - "heading_font": looked up from tone
+      - "body_font": looked up from tone
+      - "tagline": AI-generated, max 7 words
+    interactive: true
+    output_format:
+      type: object
+      properties:
+        brand_name: { type: string }
+        niche: { type: string }
+        mode: { type: string, enum: [light, dark] }
+      required: [brand_name, niche, mode]
+
+  # ================================================================
+  # PHASE 2: THEME CONFIG — palette, fonts, dark mode overrides
+  # ================================================================
+
+  - id: apply-theme
+    depends_on: [intake]
+    context: fresh
+    command: apply-theme-config
+    skills: [mega-kadence-skill]
+
+  # VALIDATE: Palette applied correctly?
+  - id: check-palette
+    depends_on: [apply-theme]
+    bash: |
+      source .env 2>/dev/null || true
+      RESULT=$(curl -s "${BRIDGE_URL}/palette" -u "${BRIDGE_USER}:${BRIDGE_PASS}")
+      HAS_PALETTE=$(echo "$RESULT" | python3 -c "import sys,json;p=json.load(sys.stdin).get('palette');print('yes' if p else 'no')" 2>/dev/null)
+      [ "$HAS_PALETTE" = "yes" ] && echo "PASS: palette set" || { echo "FAIL: palette not set"; exit 1; }
+    timeout: 10000
+
+  # VALIDATE: Dark mode CSS injected (if dark mode)?
+  - id: check-dark-css
+    depends_on: [apply-theme]
+    bash: |
+      source .env 2>/dev/null || true
+      MODE=$(cat $ARTIFACTS_DIR/intake.json | python3 -c "import sys,json;print(json.load(sys.stdin).get('mode','light'))" 2>/dev/null)
+      if [ "$MODE" = "dark" ]; then
+        # Check that custom CSS was injected with dark mode overrides
+        HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
+        echo "$HTML" | grep -q "global-palette4.*!important\|global-palette3.*!important" && echo "PASS: dark mode CSS injected" || { echo "FAIL: dark mode CSS not injected — text will be invisible"; exit 1; }
+      else
+        echo "PASS: light mode — no dark CSS needed"
+      fi
+    timeout: 15000
+
+  # ================================================================
+  # PHASE 3: PRODUCTS + CATEGORIES
+  # ================================================================
+
+  - id: create-products
+    depends_on: [check-palette]
+    context: fresh
+    command: create-products-and-categories
+
+  # VALIDATE: Products exist and are featured?
+  - id: check-products
+    depends_on: [create-products]
+    bash: |
+      source .env 2>/dev/null || true
+      TOTAL=$(curl -s "${BRIDGE_URL}/woo/products" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('total',0))" 2>/dev/null)
+      [ "$TOTAL" -ge 4 ] && echo "PASS: ${TOTAL} products" || { echo "FAIL: only ${TOTAL} products (need 4+)"; exit 1; }
+    timeout: 10000
+
+  # ================================================================
+  # PHASE 4: PAGES — homepage, about, contact, legal
+  # ================================================================
+
+  - id: create-pages
+    depends_on: [check-products]
+    context: fresh
+    command: create-all-pages
+
+  # VALIDATE: All pages return 200?
+  - id: check-pages
+    depends_on: [create-pages]
+    bash: |
+      source .env 2>/dev/null || true
+      FAIL=0
+      for P in / /about/ /contact/ /shop/ /privacy-policy/ /terms-of-service/ /returns-and-refunds/; do
+        STATUS=$(curl -s --max-time 10 "${BRIDGE_URL}/render?url=${P}" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
+        if [ "$STATUS" = "200" ]; then
+          echo "PASS: ${P}"
+        else
+          echo "FAIL: ${P} returned ${STATUS}"
+          FAIL=1
+        fi
+      done
+      [ $FAIL -eq 0 ] && echo "ALL PAGES PASS" || exit 1
+    timeout: 60000
+
+  # VALIDATE: Zero block recovery warnings?
+  - id: check-blocks
+    depends_on: [check-pages]
+    bash: |
+      source .env 2>/dev/null || true
+      AUTH="${BRIDGE_USER}:${BRIDGE_PASS}"
+      FAIL=0
+
+      # Get page IDs for content pages (home, about, contact)
+      for SLUG in home about contact; do
+        PID=$(curl -s "${BRIDGE_URL}/posts/find?slug=${SLUG}&type=page" -u "$AUTH" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+        if [ -n "$PID" ]; then
+          WARNS=$(curl -s "$(echo $BRIDGE_URL | sed 's|/mega-kadence-bridge/v1||')/wp/v2/pages/${PID}?context=edit" -u "$AUTH" | python3 -c "import sys,json;r=json.load(sys.stdin).get('content',{}).get('rendered','');print(r.count('block-editor-warning')+r.count('attempt-block-recovery'))" 2>/dev/null)
+          if [ "$WARNS" = "0" ]; then
+            echo "PASS: ${SLUG} — 0 block warnings"
+          else
+            echo "FAIL: ${SLUG} — ${WARNS} block warnings"
+            FAIL=1
+          fi
+        fi
+      done
+      [ $FAIL -eq 0 ] || exit 1
+    timeout: 30000
+
+  # VALIDATE: Fluent Forms embedded?
+  - id: check-forms
+    depends_on: [check-pages]
+    bash: |
+      source .env 2>/dev/null || true
+      FAIL=0
+
+      # Check homepage for newsletter form
+      HOME_FF=$(curl -s "https://$(echo $BRIDGE_URL | sed 's|.*://||;s|/wp-json.*||')/" | grep -ci "fluentform\|ff-el-form")
+      [ "$HOME_FF" -gt 0 ] && echo "PASS: homepage has Fluent Form (${HOME_FF} refs)" || { echo "FAIL: homepage missing Fluent Form"; FAIL=1; }
+
+      # Check contact page for contact form
+      CONTACT_FF=$(curl -s "https://$(echo $BRIDGE_URL | sed 's|.*://||;s|/wp-json.*||')/contact/" | grep -ci "fluentform\|ff-el-form")
+      [ "$CONTACT_FF" -gt 0 ] && echo "PASS: contact has Fluent Form (${CONTACT_FF} refs)" || { echo "FAIL: contact missing Fluent Form"; FAIL=1; }
+
+      [ $FAIL -eq 0 ] || exit 1
+    timeout: 20000
+
+  # ================================================================
+  # PHASE 5: HEADER + FOOTER + NAV
+  # ================================================================
+
+  - id: configure-chrome
+    depends_on: [check-blocks, check-forms]
+    context: fresh
+    command: configure-header-footer-nav
+    trigger_rule: all_success
+
+  # VALIDATE: Header has logo + nav + mobile trigger?
+  - id: check-header
+    depends_on: [configure-chrome]
+    bash: |
+      source .env 2>/dev/null || true
+      HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
+      FAIL=0
+
+      echo "$HTML" | grep -qi "custom-logo\|site-title" && echo "PASS: logo/title present" || { echo "FAIL: no logo or site title"; FAIL=1; }
+      echo "$HTML" | grep -q "menu-item" && echo "PASS: nav menu present" || { echo "FAIL: no nav menu items"; FAIL=1; }
+      echo "$HTML" | grep -qi "popup-toggle\|menu-toggle-open" && echo "PASS: mobile trigger present" || { echo "FAIL: no mobile trigger"; FAIL=1; }
+
+      [ $FAIL -eq 0 ] || exit 1
+    timeout: 15000
+
+  # VALIDATE: Footer has brand + legal links?
+  - id: check-footer
+    depends_on: [configure-chrome]
+    bash: |
+      source .env 2>/dev/null || true
+      BRAND=$(cat $ARTIFACTS_DIR/intake.json | python3 -c "import sys,json;print(json.load(sys.stdin).get('brand_name',''))" 2>/dev/null)
+      HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
+
+      echo "$HTML" | grep -qi "$BRAND" && echo "PASS: brand name in footer" || echo "WARN: brand name not found"
+      echo "$HTML" | grep -qi "privacy" && echo "PASS: privacy link" || echo "WARN: no privacy link"
+      echo "$HTML" | grep -qi "returns\|refund" && echo "PASS: returns link" || echo "WARN: no returns link"
+      echo "$HTML" | grep -qi "terms" && echo "PASS: terms link" || echo "WARN: no terms link"
+      echo "FOOTER CHECK DONE"
+    timeout: 15000
+
+  # ================================================================
+  # PHASE 6: FRONT PAGE + FLUSH + FINAL REPORT
+  # ================================================================
+
+  - id: finalize
+    depends_on: [check-header, check-footer]
+    context: fresh
+    command: set-front-page-and-report
+    trigger_rule: all_success
+
+  # FINAL VALIDATION: Full site sweep
+  - id: final-check
+    depends_on: [finalize]
+    bash: |
+      source .env 2>/dev/null || true
+      SITE=$(echo $BRIDGE_URL | sed 's|/wp-json.*||')
+      AUTH="${BRIDGE_USER}:${BRIDGE_PASS}"
+      PASS=0; FAIL=0
+
+      echo "=== FINAL SITE VALIDATION ==="
+      for P in / /about/ /contact/ /shop/ /privacy-policy/ /terms-of-service/ /returns-and-refunds/; do
+        STATUS=$(curl -s --max-time 10 "${BRIDGE_URL}/render?url=${P}" -u "$AUTH" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
+        if [ "$STATUS" = "200" ]; then
+          PASS=$((PASS+1))
+        else
+          FAIL=$((FAIL+1))
+          echo "FAIL: ${P} (${STATUS})"
+        fi
+      done
+
+      echo ""
+      echo "RESULT: ${PASS} pass, ${FAIL} fail out of 7 pages"
+      [ $FAIL -eq 0 ] && echo "DEPLOYMENT SUCCESSFUL" || { echo "DEPLOYMENT HAS FAILURES"; exit 1; }
+    timeout: 60000

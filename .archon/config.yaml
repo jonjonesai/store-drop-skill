@@ -1,0 +1,6 @@
+# Archon configuration for Mega Kadence Skill
+# See: https://archon.diy/getting-started/overview/
+
+assistants:
+  claude:
+    model: sonnet
