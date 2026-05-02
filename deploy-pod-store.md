@@ -38,7 +38,28 @@ Derived variables:
 - `tagline` — AI-generated from niche + brand name (max 7 words)
 - `usp` — AI-generated from niche (one sentence, what makes them different)
 
-## Execution — 16 Steps
+## Critical: Dark Mode Requirements
+
+If the student chose dark mode, ALL text must use light colors. Without explicit overrides, Kadence defaults site title, headings, and body text to near-black — invisible on dark backgrounds. The set-palette recipe Step 3b handles this, but double-check:
+
+- Site title / text logo: `palette9` (white)
+- Headings: `palette3` (white in dark mode)
+- Body text: `palette4` (light gray in dark mode)
+- Nav links: `palette9` on transparent header, `palette4` on solid header
+- Footer text: `palette5` (muted)
+
+Also: `_kad_post_vertical_padding` must be `"disable"` (NOT `"hide"` — wrong value, does nothing).
+
+## Critical: Fluent Forms
+
+The homepage newsletter section and contact page MUST include Fluent Forms shortcodes. Check if forms exist via `GET /wp-json/fluentform/v1/forms`. If form IDs 1 and 2 exist, use them. If not, the shortcode renders as empty (not broken, but the section has no form). Always embed:
+
+- Homepage newsletter: `[fluentform id="2"]` (or whichever is the subscription form)
+- Contact page: `[fluentform id="1"]` (or whichever is the contact form)
+
+Read the golden templates in `templates/` — they include the shortcode blocks.
+
+## Execution — 17 Steps
 
 ### Step 1: Set site title
 

@@ -139,6 +139,29 @@ curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
 
 **Gotcha:** `content_background` must be empty string for dark mode. If set to a color, it creates a white/light content box that breaks the dark theme.
 
+### Step 3b: Set text colors for dark mode
+
+For dark mode, ALL text-bearing elements must use light colors. Kadence defaults many elements to dark text which is invisible on dark backgrounds:
+
+```bash
+curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
+  -u "claude-bot:${BRIDGE_PASS}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mods": {
+      "brand_typography_color": {"color": "palette9"},
+      "heading_color": {"color": "palette3"},
+      "base_font_color": {"color": "palette4"},
+      "heading_font_color": {"color": "palette3"},
+      "link_color": {"color": "palette1", "hover": "palette2"},
+      "transparent_header_site_title_color": {"color": "palette9"},
+      "transparent_header_navigation_color": {"color": "palette9", "hover": "palette1", "active": "palette1"}
+    }
+  }'
+```
+
+**Critical for dark mode:** Without these overrides, the site title (text logo), headings, body text, and nav links all default to near-black and are invisible on dark backgrounds.
+
 ### Step 4: Flush cache
 
 ```bash

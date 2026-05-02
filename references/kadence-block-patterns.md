@@ -104,7 +104,15 @@ For Fluent Forms and other shortcodes:
 <!-- /wp:shortcode -->
 ```
 
-### 10. No trailing empty paragraphs
+### 10. Dark mode: all text must be light
+
+On dark mode sites, Kadence defaults many text elements to near-black. You MUST explicitly set light colors via theme_mods for: site title (`brand_typography_color`), headings (`heading_color`), body text (`base_font_color`), links (`link_color`), transparent header nav (`transparent_header_navigation_color`), and transparent header site title (`transparent_header_site_title_color`). See `recipes/set-palette.md` Step 3b.
+
+### 11. `_kad_post_vertical_padding` value is `"disable"` not `"hide"`
+
+The correct value to suppress Kadence's default content-area padding is the string `"disable"`. Using `"hide"` has no effect and leaves a white gap above the content.
+
+### 12. No trailing empty paragraphs
 
 Content MUST NOT end with an empty paragraph. Strip `<!-- wp:paragraph --><p></p><!-- /wp:paragraph -->` and trailing whitespace before saving.
 
