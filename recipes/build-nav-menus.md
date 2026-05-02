@@ -375,3 +375,36 @@ curl -s "${BRIDGE_URL}/render?url=/" -u "claude-bot:${BRIDGE_PASS}" \
 9. **`header_desktop_items` keys also use row prefixes.** The column keys are `main_left`, `main_right`, `top_left`, `bottom_center`, etc. — NOT `left`, `right`. Using bare direction names silently fails and renders an empty header.
 
 10. **Mobile header component names differ from desktop.** The hamburger trigger is `popup-toggle` (NOT `mobile-trigger`). The mobile logo is `mobile-logo` (NOT `logo`). The mobile popup nav is `mobile-navigation` (NOT `navigation`). These map to template files in `template-parts/header/`.
+
+11. **Mobile trigger requires custom CSS on transparent header pages.** Theme_mods alone don't reliably style the trigger when transparent header is active. Always inject this CSS via `POST /css` after setting theme_mods:
+
+```css
+.mobile-toggle-open-container .menu-toggle-open,
+.mobile-toggle-open-container .menu-toggle-open:focus {
+  background: var(--global-palette1) !important;
+  color: var(--global-palette9) !important;
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 8px 10px !important;
+}
+.mobile-toggle-open-container .menu-toggle-open:hover {
+  background: var(--global-palette2) !important;
+}
+.mobile-toggle-open-container .menu-toggle-open .menu-toggle-icon svg {
+  fill: var(--global-palette9) !important;
+}
+.mobile-navigation a, .drawer-navigation a {
+  color: var(--global-palette3) !important;
+}
+.mobile-navigation a:hover, .drawer-navigation a:hover {
+  color: var(--global-palette1) !important;
+}
+.popup-drawer .drawer-inner, .mobile-drawer-content {
+  background: var(--global-palette9) !important;
+}
+.popup-drawer .drawer-header .menu-toggle-close {
+  color: var(--global-palette3) !important;
+}
+```
+
+12. **Menu creation fails silently on duplicate names.** `POST /menus/create` returns empty when a menu with the same name already exists. Always check `GET /menus` first and reuse existing menus, or delete-then-create.

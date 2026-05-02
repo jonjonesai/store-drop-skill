@@ -214,6 +214,19 @@ done
 
 Legal pages use standard WordPress blocks (heading + paragraph) which don't need normalization.
 
+### Step 15b: Inject mobile trigger CSS
+
+Theme_mods alone don't reliably style the mobile trigger on transparent header pages. Inject custom CSS to force visibility:
+
+```bash
+curl -s -X POST "${BRIDGE_URL}/css" \
+  -u "claude-bot:${BRIDGE_PASS}" \
+  -H "Content-Type: application/json" \
+  -d '{"css": ".mobile-toggle-open-container .menu-toggle-open, .mobile-toggle-open-container .menu-toggle-open:focus { background: var(--global-palette1) !important; color: var(--global-palette9) !important; border: none !important; border-radius: 4px !important; padding: 8px 10px !important; } .mobile-toggle-open-container .menu-toggle-open:hover { background: var(--global-palette2) !important; } .mobile-toggle-open-container .menu-toggle-open .menu-toggle-icon svg { fill: var(--global-palette9) !important; } .mobile-navigation a, .drawer-navigation a { color: var(--global-palette3) !important; } .mobile-navigation a:hover, .drawer-navigation a:hover { color: var(--global-palette1) !important; } .popup-drawer .drawer-inner, .mobile-drawer-content { background: var(--global-palette9) !important; } .popup-drawer .drawer-header .menu-toggle-close { color: var(--global-palette3) !important; }"}'
+```
+
+This ensures the pink hamburger trigger and readable drawer nav on all devices.
+
 ### Step 16: Flush all caches
 
 ```bash
