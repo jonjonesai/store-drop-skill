@@ -18,7 +18,10 @@ nodes:
 
   - id: preflight
     bash: |
-      source .env 2>/dev/null || true
+      # Try multiple .env locations: worktree, repo root, parent project
+      for ENV_PATH in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env" "../.env"; do
+        [ -f "$ENV_PATH" ] && source "$ENV_PATH" && break
+      done
       BRIDGE_URL="${BRIDGE_URL:-}"
       BRIDGE_USER="${BRIDGE_USER:-claude-bot}"
       BRIDGE_PASS="${BRIDGE_PASS:-}"
@@ -101,7 +104,7 @@ nodes:
   - id: check-palette
     depends_on: [apply-theme]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       RESULT=$(curl -s "${BRIDGE_URL}/palette" -u "${BRIDGE_USER}:${BRIDGE_PASS}")
       HAS_PALETTE=$(echo "$RESULT" | python3 -c "import sys,json;p=json.load(sys.stdin).get('palette');print('yes' if p else 'no')" 2>/dev/null)
       [ "$HAS_PALETTE" = "yes" ] && echo "PASS: palette set" || { echo "FAIL: palette not set"; exit 1; }
@@ -111,7 +114,7 @@ nodes:
   - id: check-dark-css
     depends_on: [apply-theme]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       MODE=$(cat $ARTIFACTS_DIR/intake.json | python3 -c "import sys,json;print(json.load(sys.stdin).get('mode','light'))" 2>/dev/null)
       if [ "$MODE" = "dark" ]; then
         # Check that custom CSS was injected with dark mode overrides
@@ -135,7 +138,7 @@ nodes:
   - id: check-products
     depends_on: [create-products]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       TOTAL=$(curl -s "${BRIDGE_URL}/woo/products" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('total',0))" 2>/dev/null)
       [ "$TOTAL" -ge 4 ] && echo "PASS: ${TOTAL} products" || { echo "FAIL: only ${TOTAL} products (need 4+)"; exit 1; }
     timeout: 10000
@@ -153,7 +156,7 @@ nodes:
   - id: check-pages
     depends_on: [create-pages]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       FAIL=0
       for P in / /about/ /contact/ /shop/ /privacy-policy/ /terms-of-service/ /returns-and-refunds/; do
         STATUS=$(curl -s --max-time 10 "${BRIDGE_URL}/render?url=${P}" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
@@ -171,7 +174,7 @@ nodes:
   - id: check-blocks
     depends_on: [check-pages]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       AUTH="${BRIDGE_USER}:${BRIDGE_PASS}"
       FAIL=0
 
@@ -195,7 +198,7 @@ nodes:
   - id: check-forms
     depends_on: [check-pages]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       FAIL=0
 
       # Check homepage for newsletter form
@@ -223,7 +226,7 @@ nodes:
   - id: check-header
     depends_on: [configure-chrome]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
       FAIL=0
 
@@ -238,7 +241,7 @@ nodes:
   - id: check-footer
     depends_on: [configure-chrome]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       BRAND=$(cat $ARTIFACTS_DIR/intake.json | python3 -c "import sys,json;print(json.load(sys.stdin).get('brand_name',''))" 2>/dev/null)
       HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
 
@@ -263,7 +266,7 @@ nodes:
   - id: final-check
     depends_on: [finalize]
     bash: |
-      source .env 2>/dev/null || true
+      for EP in .env "$HOME/kadence-skill/mega-kadence-skill/.env" "$HOME/kadence-skill/.env"; do [ -f "$EP" ] && source "$EP" && break; done
       SITE=$(echo $BRIDGE_URL | sed 's|/wp-json.*||')
       AUTH="${BRIDGE_USER}:${BRIDGE_PASS}"
       PASS=0; FAIL=0
