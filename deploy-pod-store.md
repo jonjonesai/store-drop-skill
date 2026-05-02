@@ -38,17 +38,37 @@ Derived variables:
 - `tagline` — AI-generated from niche + brand name (max 7 words)
 - `usp` — AI-generated from niche (one sentence, what makes them different)
 
-## Critical: Dark Mode Requirements
+## Mode-Specific Checklist
 
-If the student chose dark mode, ALL text must use light colors. Without explicit overrides, Kadence defaults site title, headings, and body text to near-black — invisible on dark backgrounds. The set-palette recipe Step 3b handles this, but double-check:
+The light and dark paths MUST produce the same quality output. Use this checklist to verify every mode-dependent setting is applied. If ANY item is missed on dark mode, the site will have invisible text or white gaps.
 
-- Site title / text logo: `palette9` (white)
-- Headings: `palette3` (white in dark mode)
-- Body text: `palette4` (light gray in dark mode)
-- Nav links: `palette9` on transparent header, `palette4` on solid header
-- Footer text: `palette5` (muted)
+### Settings that differ by mode
 
-Also: `_kad_post_vertical_padding` must be `"disable"` (NOT `"hide"` — wrong value, does nothing).
+| Setting | Light Mode Value | Dark Mode Value |
+|---|---|---|
+| `palette3` (Headings) | `#0A0A0A` | `#FFFFFF` |
+| `palette4` (Body Text) | `#2D2D2D` | `#E0E0E0` |
+| `palette5` (Muted Text) | `#6B6B6B` | `#999999` |
+| `palette6` (Borders) | `#E0E0E0` | `#333333` |
+| `palette7` (Light Surface) | `#F5F5F5` | `#1A1A1A` |
+| `palette8` (Page Background) | `#FAFAFA` | `#0A0A0A` |
+| `header_main_background` | `palette9` (white) | `palette8` (dark) |
+| `header_sticky_background` | `palette9` (white) | `palette8` (dark) |
+| `site_background` | not set (default) | `palette8` |
+| `content_background` | not set (default) | `""` (empty string — CRITICAL) |
+| `footer_wrap_background` | `palette3` (dark footer) | `palette7` (surface footer) |
+| `brand_typography_color` | not needed (dark on light) | `palette9` (white — CRITICAL) |
+| `heading_color` | not needed | `palette3` (white in dark palette) |
+| `base_font_color` | not needed | `palette4` (light gray in dark palette) |
+| `link_color` | `palette1` / `palette2` | `palette1` / `palette2` |
+| `mobile_navigation_color.background` | `palette9` (white drawer) | `palette8` (dark drawer) |
+| `mobile_navigation_color.color` | `palette3` (dark text) | `palette9` (white text) |
+
+**All palette-referenced settings (bgColor in blocks, button colors, etc.) adapt automatically** because the palette itself changes. The settings above are the ones that use hardcoded or non-palette values.
+
+### `_kad_post_vertical_padding` must be `"disable"`
+
+NOT `"hide"`. The value `"hide"` does nothing and leaves a white gap above content.
 
 ## Critical: Fluent Forms
 
@@ -78,6 +98,30 @@ curl -s -X POST "${BRIDGE_URL}/option/blogdescription" \
 ### Step 2: Apply palette
 
 Execute `recipes/set-palette.md` with `mode` and `primary_color` from intake.
+
+### Step 2b: Apply dark mode text overrides (dark mode ONLY)
+
+**Skip this step for light mode.** For dark mode, Kadence defaults text to near-black which is invisible on dark backgrounds. Execute `recipes/set-palette.md` Step 3 AND Step 3b. Then verify these are all set:
+
+```bash
+curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
+  -u "claude-bot:${BRIDGE_PASS}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mods": {
+      "site_background": {"desktop": {"color": "palette8"}},
+      "content_background": {"desktop": {"color": ""}},
+      "brand_typography_color": {"color": "palette9"},
+      "heading_color": {"color": "palette3"},
+      "base_font_color": {"color": "palette4"},
+      "heading_font_color": {"color": "palette3"},
+      "link_color": {"color": "palette1", "hover": "palette2"},
+      "mobile_navigation_color": {"color": "palette9", "hover": "palette1", "active": "palette1", "background": "palette8", "divider": "palette6"}
+    }
+  }'
+```
+
+If ANY of these are missing on a dark mode site, text will be invisible.
 
 ### Step 3: Apply fonts by tone
 
