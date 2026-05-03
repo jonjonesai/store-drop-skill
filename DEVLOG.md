@@ -4,6 +4,69 @@ Chronological history of significant changes to the Mega Kadence Skill.
 
 ---
 
+## Session 5 — 2026-05-03 (evening)
+
+**Mission:** dry-run the shipped harness on cutemerch.love from the second-brain VPS, polish anything Jon's eye catches, lock the skill before the Tier 1 demo video shoot.
+
+**Outcome:** dry-run passed clean (43/43 nodes, 12.3 min wall time, 7/7 pages live). One visual gap caught by user-eye after the workflow declared SUCCESSFUL. Fix codified as a 7th permanent bug fix. Workflow node count 43 → 45.
+
+### What happened on the dry-run
+
+- Cloned skill repo to `~/kadence-skill/mega-kadence-skill/` on the second-brain VPS (Hetzner, user `jon`). Hardcoded path matched, lib sourcing worked.
+- Installed Archon CLI v0.3.10 user-local at `~/.local/bin/archon` (`INSTALL_DIR=~/.local/bin curl -fsSL https://archon.diy/install | bash`). No sudo needed.
+- First `./deploy.sh` failed at `apply-theme` node with: *"Claude Code not found. Archon requires the Claude Code executable to be reachable at a configured path."*
+- Root cause: this VPS has `claude` at `/usr/bin/claude` (system install), not the install.sh-default `~/.local/bin/claude`. The OAuth wrapper unsets `CLAUDE_CODE_EXECPATH`, which Archon falls back from. **Not a skill bug — environmental.** A fresh-WSL student following the README's `curl claude.ai/install.sh` puts `claude` at `~/.local/bin/claude`, where Archon finds it natively.
+- Fix: wrote `~/.archon/config.yaml` with `assistants: claude: claudeBinaryPath: /usr/bin/claude`. Re-ran. **Worth adding a README troubleshooting line** for any future user installing claude from apt/npm/system path.
+- Second run: clean. All 7 pages live. cutemerch.love deployed end-to-end.
+
+### Bug #7 — content-style-boxed white band before footer
+
+**Symptom (caught by Jon's eye, not by any validator):** every page rendered a thin white band between the last alignfull section and the dark footer. Not a CSS or palette issue — a Kadence layout default.
+
+**Root cause:** Kadence defaults pages to `content-style-boxed` + `content-vertical-padding-show`, which wrap each page in a card with vertical padding. Brand landing pages built from `alignfull` blocks need `unboxed` + `padding-hide`; otherwise the parent card's bottom padding shows through as the body color (white in light mode, dark in dark — but visible on the dark footer in light).
+
+**Diagnosis path:** read body class on rendered homepage. Found `content-width-fullwidth content-style-boxed content-vertical-padding-show`. Probed theme_mods via `/theme-mod/{key}` — `page_content_style`, `page_vertical_padding`, `post_content_style`, `post_vertical_padding` all returned `false` (unset). Kadence was using its theme defaults.
+
+**Live fix on cutemerch.love (validated):** four `POST /theme-mod/{key}` calls + `/cache/flush`. Body class flipped to `content-style-unboxed content-vertical-padding-hide`. Band gone.
+
+**Fix codified into the workflow** as Phase 2b (after `check-palette`, before `create-products`):
+- New node `enforce-content-style` (bash) — sets all four theme_mods then flushes cache.
+- New node `check-content-style` (bash validator) — `bridge_render("/")`, asserts `content-style-unboxed` AND `content-vertical-padding-hide` are present in the body class.
+- `create-products` `depends_on` updated from `[check-palette]` to `[check-content-style]`.
+
+### Lib addition
+
+`lib/bridge.sh` gained `bridge_post_theme_mod <key> <value>` — symmetric with the existing `bridge_get_theme_mod`. Single-line wrapper around `bridge_post`. Useful for any future bash node that needs to set theme_mods deterministically.
+
+### Files changed
+
+```
+.archon/lib/bridge.sh                              # +bridge_post_theme_mod helper
+.archon/workflows/deploy-pod-store.yaml            # +enforce-content-style, +check-content-style; create-products depends_on
+DEVLOG.md                                          # +Session 5
+HANDOFF.md                                         # bugs 6 → 7
+```
+
+### Files unchanged but worth noting
+
+- `apply-theme-config.md` — NOT modified. The fix is intentionally outside the AI command. Bash + validator is enforcement; AI command should stay narrow on palette/fonts/title.
+- `recipes/` and `templates/` — untouched. The fix is theme-mod-level, not page-content-level.
+
+### Validation
+
+- YAML parse: 45 nodes, well-formed.
+- `bash -n` syntax check on new nodes: both pass.
+- Lib helper smoke test: `bridge_post_theme_mod page_content_style "unboxed"` returned `success: true` against the live cutemerch.love bridge.
+- End-to-end re-run on cutemerch.love NOT performed (would take another 12 min). Trade-off accepted: harness halt-loud-on-failure means a node-level bug surfaces with a clear error message, not silent failure.
+
+### Open items / future work
+
+- Re-run a full clean deploy from a fresh wipe to confirm bug #7 fix integrates cleanly with Phase 5b. Low risk (Phase 5b mode-CSS rules are CSS injection, orthogonal to layout theme_mods) but worth doing once before next student deploy.
+- Consider adding `INSTALL_DIR=~/.local/bin` as the README's recommended Archon install (matches Claude Code's default install dir, sidesteps any `/usr/local/bin` permission issues).
+- README troubleshooting section should mention: *"If Archon errors with 'Claude Code not found' on workflow run, your `claude` binary is at a non-default path. Set it in `~/.archon/config.yaml`: `assistants: { claude: { claudeBinaryPath: /path/to/claude } }`."*
+
+---
+
 ## Session 4 — 2026-05-03
 
 **Mission:** turn the harness from "internal-test-grade prototype" into a student-grade product. Fix the Archon session-hang. Validate dark mode end-to-end. Build a turnkey rookie experience.

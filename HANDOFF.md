@@ -1,18 +1,18 @@
 # Handoff for the next Claude
 
-> Read this before doing anything else. It is the complete state of the project as of 2026-05-03 (end of Session 4). Audience: a Claude that needs to pick up this work — especially one producing a video series demonstrating it.
+> Read this before doing anything else. It is the complete state of the project as of 2026-05-03 (end of Session 5). Audience: a Claude that needs to pick up this work — especially one producing a video series demonstrating it.
 
 ## What this project is, in one paragraph
 
-Mega Kadence Skill is a deployment system for branded print-on-demand stores on WordPress + Kadence + WooCommerce. A student answers six questions about their brand, runs one terminal command, and ~15 minutes later has a fully configured 7-page storefront — homepage, about, contact, shop, and three legal pages — with palette, fonts, header, footer, navigation, products, and dark/light mode all wired up. The heavy lifting is done by an Archon workflow (a 43-node DAG) that mixes Claude AI sessions for content generation with deterministic bash for everything else, and validates every change against the live site before continuing.
+Mega Kadence Skill is a deployment system for branded print-on-demand stores on WordPress + Kadence + WooCommerce. A student answers six questions about their brand, runs one terminal command, and ~15 minutes later has a fully configured 7-page storefront — homepage, about, contact, shop, and three legal pages — with palette, fonts, header, footer, navigation, products, and dark/light mode all wired up. The heavy lifting is done by an Archon workflow (a 45-node DAG, up from 43 in Session 5 after bug #7's fix) that mixes Claude AI sessions for content generation with deterministic bash for everything else, and validates every change against the live site before continuing.
 
 ## Why this iteration matters (the architectural arc)
 
 **Before this session:** the skill was a 300-line markdown file (`SKILL.md` + `deploy-pod-store.md`) that a single cold Claude session would read and try to execute. Light mode mostly worked; dark mode failed reliably with four specific bugs (logo invisible, body text invisible, white gap above hero, mobile drawer wrong colors). The student-facing flow was a one-line prompt that asked Claude to load the skill, ask 6 setup questions, and build everything.
 
-**The shift:** instead of asking one Claude to remember 300 lines, decompose into 43 small nodes orchestrated by Archon. Each AI node gets ~30 lines of focused instruction for ONE job. Bash validators run after every state-changing node and check live HTML to confirm the change actually took effect. If a validator fails, the workflow halts loud with an exact reason. Failure becomes impossible to ship.
+**The shift:** instead of asking one Claude to remember 300 lines, decompose into 45 small nodes orchestrated by Archon (up from 43 in Session 5 — bug #7's fix added 2 nodes). Each AI node gets ~30 lines of focused instruction for ONE job. Bash validators run after every state-changing node and check live HTML to confirm the change actually took effect. If a validator fails, the workflow halts loud with an exact reason. Failure becomes impossible to ship.
 
-**The result:** dark mode now works end-to-end on the first try (verified across multiple wipes). Six bugs were caught during validation runs and codified into the lib so they cannot recur. The student flow is `./deploy.sh`: a single interactive command that prompts for credentials and intake, then runs the full workflow.
+**The result:** dark mode now works end-to-end on the first try (verified across multiple wipes). Seven bugs are now codified — six caught by harness validators during build, one (the white-band-before-footer bug) caught by user-eye after the first successful deploy and converted into a NEW validator that would have caught it. The student flow is `./deploy.sh`: a single interactive command that prompts for credentials and intake, then runs the full workflow.
 
 **What this enables:** a true "type one command, walk away, come back to a deployed store" experience. ~15 minutes from running the command to a live site. Reproducible, deterministic, idempotent.
 
@@ -150,9 +150,9 @@ Result: Archon talks to the Anthropic API directly via the explicit token, never
 
 **Reference:** https://github.com/coleam00/Archon/issues/1067
 
-## Six bug fixes caught during validation (each became a permanent fix)
+## Seven bug fixes — each codified as a permanent harness rule
 
-These are not "Claude must remember" rules — each is now codified in code and validated:
+Bugs 1–6 were caught by the harness's own validators during build runs. Bug 7 was caught by user-eye after the first end-to-end successful deploy and produced a NEW validator that would have caught it had it existed. None of these are "Claude must remember" rules — each lives in code:
 
 1. **`check-homepage` hit `/` instead of `/home/`.** `set-front-page` doesn't run until Phase 6, so `/` is still the WordPress blog index when this validator runs. Fixed: validator hits the slug URL.
 2. **AI sessions and bash nodes resolved different `ARTIFACTS_DIR`.** AI-written page artifacts landed in `/tmp/archon-artifacts` (lib fallback), bash nodes read from the workflow's run dir. Fixed: `pages.sh` reads from BOTH and writes to BOTH.
@@ -160,11 +160,13 @@ These are not "Claude must remember" rules — each is now codified in code and 
 4. **`bridge_get_theme_mod` emitted JSON with `: ` spaces.** Validator regex `"key":[0-9]+` couldn't match `"key": 87`. Fixed: use python's compact separators `(",",":")`.
 5. **`check-per-page-transparent` hit non-existent `/posts/{id}/meta/{key}` endpoint.** Bridge has no per-key meta endpoint. Also expected the value to be a string but WP returns it as a list. Fixed: read full post + extract from `meta._kad_post_transparent`, accept either string or list.
 6. **Footer text invisible (light mode) AND legal page headings invisible (dark mode).** No theme_mod was setting footer text colors, and standard-WP-block pages used a `content-style-boxed` white card with off-white text. Fixed: universal `FOOTER_CSS` block applied in both modes (footer always dark with light text); broader-specificity heading rules + boxed-card transparent override added to dark CSS bundle.
+7. **White band between last alignfull block and footer on every page.** Kadence defaults to `content-style-boxed` + `content-vertical-padding-show` for pages and posts, wrapping content in a card with vertical padding. Brand landing pages built from `alignfull` blocks throughout need `unboxed` + `padding-hide`. Caught by Jon's eye after first successful cutemerch.love deploy in Session 5. Fixed: new Phase 2b — `enforce-content-style` (bash) sets `page_content_style`/`page_vertical_padding`/`post_content_style`/`post_vertical_padding` then flushes cache; `check-content-style` (bash) validates the body class shows `content-style-unboxed` AND `content-vertical-padding-hide`. New `bridge_post_theme_mod` helper added to `lib/bridge.sh`.
 
 ## Known limitations / open issues
 
 These are known and acceptable for v1, but worth knowing:
 
+- **Archon needs `claudeBinaryPath` set when `claude` is at a non-default location.** If the student installed Claude Code via the README's `curl claude.ai/install.sh | bash` (default install path `~/.local/bin/claude`), Archon finds it natively. If they installed it via apt/npm/system path (`/usr/bin/claude`, `/usr/local/bin/claude`, etc.), the OAuth wrapper unsets `CLAUDE_CODE_EXECPATH` and Archon errors at the first AI node with *"Claude Code not found."* Fix: write `~/.archon/config.yaml` with `assistants: { claude: { claudeBinaryPath: /absolute/path/to/claude } }`. Adding this to the README troubleshooting section is on the open list. (Confirmed on second-brain VPS, Session 5.)
 - **Repo path is hardcoded to `~/kadence-skill/mega-kadence-skill/`.** All bash nodes use `$HOME/kadence-skill/mega-kadence-skill/...` for sourcing lib files and reading intake.json. Cloning to a different path would break things. Future cleanup: use `ARCHON_PROJECT_ROOT` or have the wrapper export a known env var.
 - **`apply-theme-config.md` is still a 5-step AI command.** Could be split into atomic palette/fonts/title nodes for symmetry, but the value is small since Phase 5b CSS enforcement corrects any drift.
 - **`set-front-page-and-report.md` is the only AI node in Phase 6.** Could be replaced with deterministic bash, but the AI handles printing the summary nicely.

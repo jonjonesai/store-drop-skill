@@ -145,12 +145,44 @@ nodes:
   # after the deterministic inject-mode-css bash override, so any dark-mode
   # CSS issue is caught there with pinpoint failure messages.
 
+  # ----- PHASE 2b: CONTENT STYLE ENFORCEMENT -----
+  # Kadence defaults pages to content-style-boxed + content-vertical-padding-show,
+  # which wraps each page in a card with bottom padding. Brand landing pages built
+  # from alignfull blocks need unboxed + padding-hide; otherwise a thin band of the
+  # body color shows through between the last alignfull block and the footer.
+  # Bug #7 — caught by user-eye after first successful deploy on cutemerch.love.
+  - id: enforce-content-style
+    depends_on: [check-palette]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      bridge_check_env || exit 1
+      bridge_post_theme_mod page_content_style "unboxed" >/dev/null
+      bridge_post_theme_mod page_vertical_padding "hide" >/dev/null
+      bridge_post_theme_mod post_content_style "unboxed" >/dev/null
+      bridge_post_theme_mod post_vertical_padding "hide" >/dev/null
+      bridge_flush_cache
+      echo "PASS: content style set to unboxed, vertical padding hidden"
+    timeout: 15000
+
+  # VALIDATE: rendered body class shows unboxed + padding-hide?
+  - id: check-content-style
+    depends_on: [enforce-content-style]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      bridge_check_env || exit 1
+      HTML=$(bridge_render "/")
+      assert_grep "$HTML" "content-style-unboxed" "page_content_style not unboxed in body class" || exit 1
+      assert_grep "$HTML" "content-vertical-padding-hide" "page_vertical_padding not hidden in body class" || exit 1
+      echo "PASS: body class confirms unboxed + padding-hide"
+    timeout: 15000
+
   # ================================================================
   # PHASE 3: PRODUCTS + CATEGORIES
   # ================================================================
 
   - id: create-products
-    depends_on: [check-palette]
+    depends_on: [check-content-style]
     context: fresh
     command: create-products-and-categories
 

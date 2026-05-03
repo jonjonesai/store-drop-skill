@@ -67,6 +67,12 @@ bridge_get_theme_mod() {
     | python3 -c 'import sys,json;v=json.load(sys.stdin).get("value");print(json.dumps(v, separators=(",",":")) if v is not None else "")' 2>/dev/null
 }
 
+bridge_post_theme_mod() {
+  # Set a single theme_mod. Usage: bridge_post_theme_mod <key> <value>
+  # Symmetric with bridge_get_theme_mod.
+  bridge_post "/theme-mod/$1" "{\"value\":\"$2\"}"
+}
+
 bridge_flush_cache() {
   bridge_post "/cache/flush" '{}' >/dev/null
 }
