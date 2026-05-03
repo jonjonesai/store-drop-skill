@@ -172,8 +172,8 @@ nodes:
       source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
       bridge_check_env || exit 1
       HTML=$(bridge_render "/")
-      assert_grep "$HTML" "content-style-unboxed" "page_content_style not unboxed in body class" || exit 1
-      assert_grep "$HTML" "content-vertical-padding-hide" "page_vertical_padding not hidden in body class" || exit 1
+      assert_grep "page_content_style is unboxed" "content-style-unboxed" "$HTML" || exit 1
+      assert_grep "page_vertical_padding is hidden" "content-vertical-padding-hide" "$HTML" || exit 1
       echo "PASS: body class confirms unboxed + padding-hide"
     timeout: 15000
 
