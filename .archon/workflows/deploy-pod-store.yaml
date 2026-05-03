@@ -139,6 +139,27 @@ nodes:
       [ "$HAS_PALETTE" = "yes" ] && echo "PASS: palette set" || { echo "FAIL: palette not set"; exit 1; }
     timeout: 10000
 
+  # VALIDATE: tagline (blogdescription) is non-empty AND not equal to brand_name.
+  # Catches the common AI-laziness failure where blogdescription falls back to
+  # brand_name and renders the page title as "BrandName - BrandName."
+  - id: check-tagline
+    depends_on: [check-palette]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      bridge_check_env || exit 1
+      BRAND=$(python3 -c "import json;print(json.load(open('$HOME/kadence-skill/mega-kadence-skill/intake.json')).get('brand_name',''))")
+      TAGLINE=$(curl -s -u "${BRIDGE_USER}:${BRIDGE_PASS}" "${BRIDGE_URL}/option/blogdescription" | python3 -c "import sys,json;print(json.load(sys.stdin).get('value',''))" 2>/dev/null)
+      if [ -z "$TAGLINE" ]; then
+        echo "FAIL: blogdescription is empty — apply-theme-config must POST a tagline"
+        exit 1
+      fi
+      if [ "$TAGLINE" = "$BRAND" ]; then
+        echo "FAIL: blogdescription equals brand_name ('$BRAND') — must be a distinct tagline"
+        exit 1
+      fi
+      echo "PASS: tagline set — '$TAGLINE'"
+    timeout: 10000
+
   # NOTE: An early check-dark-css validator was removed here. Phase 5b's
   # 4 granular validators (check-body-text-color, check-logo-color,
   # check-hero-padding, check-drawer-colors) are authoritative — they run
@@ -152,7 +173,7 @@ nodes:
   # body color shows through between the last alignfull block and the footer.
   # Bug #7 — caught by user-eye after first successful deploy on cutemerch.love.
   - id: enforce-content-style
-    depends_on: [check-palette]
+    depends_on: [check-tagline]
     bash: |
       source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
       bridge_check_env || exit 1
@@ -164,17 +185,27 @@ nodes:
       echo "PASS: content style set to unboxed, vertical padding hidden"
     timeout: 15000
 
-  # VALIDATE: rendered body class shows unboxed + padding-hide?
+  # VALIDATE: theme_mods set correctly?
+  # Direct theme_mod check — independent of which page renders at "/", which
+  # varies during a cold-start deploy (blog index until set-front-page in Phase 6).
+  # Body-class verification still happens implicitly via Phase 5b's 4 granular
+  # validators which run after pages exist.
   - id: check-content-style
     depends_on: [enforce-content-style]
     bash: |
       source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
       bridge_check_env || exit 1
-      HTML=$(bridge_render "/")
-      assert_grep "page_content_style is unboxed" "content-style-unboxed" "$HTML" || exit 1
-      assert_grep "page_vertical_padding is hidden" "content-vertical-padding-hide" "$HTML" || exit 1
-      echo "PASS: body class confirms unboxed + padding-hide"
+      PCS=$(bridge_get_theme_mod page_content_style)
+      PVP=$(bridge_get_theme_mod page_vertical_padding)
+      if [ "$PCS" != '"unboxed"' ]; then
+        echo "FAIL: page_content_style=$PCS, expected \"unboxed\""
+        exit 1
+      fi
+      if [ "$PVP" != '"hide"' ]; then
+        echo "FAIL: page_vertical_padding=$PVP, expected \"hide\""
+        exit 1
+      fi
+      echo "PASS: page_content_style=$PCS, page_vertical_padding=$PVP"
     timeout: 15000
 
   # ================================================================
@@ -264,7 +295,11 @@ nodes:
       [ "$STATUS" = "200" ] || { echo "FAIL: contact render returned $STATUS"; exit 1; }
       echo "PASS: contact returns 200"
       HTML="$(bridge_render /contact/)"
-      assert_grep "contact embeds a Fluent Form" 'fluentform|ff-el-form' "$HTML" || exit 1
+      # Bug-fix Session 6: contact page now uses an email CTA, not a Fluent Form
+      # shortcode. FF's REST API silently drops form_fields content sent via App
+      # Password auth, so pre-creating a form with inputs is unreliable. Email
+      # CTA is the graceful default; students can drop in a real form via FF admin.
+      assert_grep "contact embeds an email link" 'href="mailto:' "$HTML" || exit 1
     timeout: 30000
 
   # ----- LEGAL (3 pages) -----

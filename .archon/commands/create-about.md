@@ -2,6 +2,8 @@
 
 You are creating ONE page: about. Do not touch any other page.
 
+**Heartbeat rule:** every ~20 seconds during your work, echo a single status line to stdout starting with `[about]` so the user watching the terminal knows you are still active. Examples: `[about] reading intake`, `[about] generating brand story`, `[about] calling /pages/ensure`.
+
 ## Setup
 
 ```bash

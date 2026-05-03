@@ -163,4 +163,10 @@ echo "Running the Archon workflow. Takes about 15 minutes."
 echo "You'll see [node] Started/Completed lines as it progresses."
 echo
 
-exec ./.archon/scripts/run-archon.sh workflow run deploy-pod-store
+# Filter cosmetic 'claude.rate_limit_event' log lines from Archon's stdout.
+# These are billing-tier display warnings (mismatch between Pro tier rate limit
+# and PAYG overage), purely cosmetic, but they read as broken to a fresh student.
+# Suppressing them keeps the on-screen scroll focused on actual workflow events.
+set -o pipefail
+./.archon/scripts/run-archon.sh workflow run deploy-pod-store 2>&1 \
+  | grep --line-buffered -v -E '"claude\.rate_limit_event"|"out_of_credits"'

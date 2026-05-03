@@ -42,12 +42,22 @@ a:hover { color: var(--global-palette2); }
 
 **Without this CSS, dark mode sites WILL have invisible text. There are no theme_mod alternatives — Kadence does not have keys like brand_typography_color or heading_color.**
 
-### 4. Set site title
+### 4. Set site title and tagline
 
 ```
 POST /option/blogname with brand_name
-POST /option/blogdescription with tagline
+POST /option/blogdescription with <generated tagline>
 ```
+
+**The tagline must be a 3-7 word phrase that captures the essence of `niche`. It must NOT equal `brand_name`.**
+
+Examples (don't copy verbatim — generate one that fits this brand):
+- `niche: "cute animal designs on tees and mugs"` → `"where cuteness meets quality"` or `"merch for animal lovers everywhere"`
+- `niche: "minimalist tech accessories"` → `"clean tools for clear minds"` or `"tech that gets out of your way"`
+
+Brand voice rules (apply always): no exclamation marks. No em dashes. Lowercase except proper nouns.
+
+Echo the tagline you wrote so the validator can confirm: `echo "TAGLINE: <your-tagline>"`.
 
 ### 5. Flush cache
 

@@ -2,6 +2,32 @@
 
 You are creating exactly THREE pages: privacy-policy, terms-of-service, returns-and-refunds. Do not touch any other page.
 
+**Heartbeat rule:** every ~20 seconds during your work, echo a single status line to stdout starting with `[legal]` so the user watching the terminal knows you are still active. Examples: `[legal] reading boilerplate`, `[legal] substituting placeholders for privacy-policy`, `[legal] calling /pages/ensure for terms`, `[legal] writing artifacts`.
+
+**Quoting discipline (CRITICAL):** legal prose contains apostrophes, quotes, and special characters. Bash heredocs and shell single-quoting will tangle these and force a self-correct cycle that adds 2-3 minutes per page. To avoid the issue entirely:
+
+- Build EVERY API request body using `python3 -c '...' << EOF` heredocs that read inputs from environment variables, then call `json.dumps()` to produce properly-escaped JSON.
+- NEVER hand-construct a JSON string with embedded apostrophes or quotes via shell-only quoting.
+
+Pattern (use exactly this shape):
+```bash
+TITLE="Privacy Policy"
+SLUG="privacy-policy"
+CONTENT_HTML="<...the wrapped wp blocks...>"
+BODY=$(TITLE="$TITLE" SLUG="$SLUG" CONTENT="$CONTENT_HTML" python3 -c '
+import os, json
+print(json.dumps({
+  "title": os.environ["TITLE"],
+  "slug": os.environ["SLUG"],
+  "status": "publish",
+  "type": "page",
+  "content": os.environ["CONTENT"],
+}))')
+bridge_post "/pages/ensure" "$BODY"
+```
+
+The python3 step handles ALL quote escaping. Apostrophes in the content pass through unchanged. No self-correct cycle.
+
 ## Setup
 
 ```bash

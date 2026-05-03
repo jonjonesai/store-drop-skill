@@ -2,6 +2,8 @@
 
 You are creating ONE page: the homepage. Do not touch any other page.
 
+**Heartbeat rule:** every ~20 seconds during your work, echo a single status line to stdout starting with `[homepage]` so the user watching the terminal knows you are still active. Examples: `[homepage] reading intake`, `[homepage] generating hero copy`, `[homepage] composing brand story`, `[homepage] calling /pages/ensure`, `[homepage] writing artifact`.
+
 ## Setup
 
 ```bash
