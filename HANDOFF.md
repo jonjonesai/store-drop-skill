@@ -1,10 +1,10 @@
 # Handoff for the next Claude
 
-> Read this before doing anything else. It is the complete state of the project as of 2026-05-03 (end of Session 5). Audience: a Claude that needs to pick up this work — especially one producing a video series demonstrating it.
+> Read this before doing anything else. It is the complete state of the project as of 2026-05-04 (end of Session 6). Audience: a Claude that needs to pick up this work — especially one producing a video series demonstrating it.
 
 ## What this project is, in one paragraph
 
-Mega Kadence Skill is a deployment system for branded print-on-demand stores on WordPress + Kadence + WooCommerce. A student answers six questions about their brand, runs one terminal command, and ~15 minutes later has a fully configured 7-page storefront — homepage, about, contact, shop, and three legal pages — with palette, fonts, header, footer, navigation, products, and dark/light mode all wired up. The heavy lifting is done by an Archon workflow (a 45-node DAG, up from 43 in Session 5 after bug #7's fix) that mixes Claude AI sessions for content generation with deterministic bash for everything else, and validates every change against the live site before continuing.
+Mega Kadence Skill is a deployment system for branded print-on-demand stores on WordPress + Kadence + WooCommerce. A student answers six questions about their brand, runs one terminal command, and ~15 minutes later has a fully configured 7-page storefront — homepage, about, contact, shop, and three legal pages — with palette, fonts, header, footer, navigation, products, and dark/light mode all wired up. The heavy lifting is done by an Archon workflow (a 46-node DAG, up from 43 over Sessions 5+6) that mixes Claude AI sessions for content generation with deterministic bash for everything else, and validates every change against the live site before continuing.
 
 ## Why this iteration matters (the architectural arc)
 
@@ -77,10 +77,14 @@ Show:
 
 ### Watch out for these on camera
 
-- **The cosmetic `out_of_credits` warning** in the Archon log — it's a mismatched billing tier display. Doesn't affect anything. Don't draw attention to it.
-- **Long silent periods** during AI nodes (1-3 min). The AI is thinking and using bash tools silently. Don't cut to "screen frozen" — explain that the workflow IS working, the AI is just deep in thought.
-- **The legal-pages node** sometimes takes 3-5 min if the AI hits a quoting issue and self-corrects. That's normal.
-- **Form fields rendering empty** on the contact page if no Fluent Forms exist. The shortcode is in place, but until the user creates a form with ID 1, it renders nothing. Mention this as a "next step for the student."
+All four of the previous "watch-outs" were FIXED in Session 6 (2026-05-04). Documented here for completeness so a future Claude understands what changed:
+
+- **`out_of_credits` warning — FIXED.** `deploy.sh` now pipes Archon stdout through `grep -v` to drop `claude.rate_limit_event` log lines. Filter is in `deploy.sh` directly.
+- **AI silent stretches — FIXED via heartbeats.** Each `create-*` AI command now instructs the AI to echo a `[<node>] <action>` status line every ~20 seconds. Real-time progress visible in the outer terminal during AI sessions.
+- **Legal-pages 3-5 min self-correct — FIXED via quoting discipline.** `create-legal-pages.md` now mandates `python3 -c '...' << EOF` heredocs + `json.dumps()` for every API request body. Quote escaping is automatic; no self-correct cycle.
+- **Contact form rendering empty — REPLACED with email CTA.** The `[fluentform id="1"]` shortcode is gone from `templates/contact.html`. Replaced with a designed Kadence button block linking to `mailto:info@<domain>`. Fluent Forms' REST API silently drops `form_fields` content via App Password auth (FF requires admin-UI capability), so reliable pre-creation isn't possible. Students drop in `[fluentform id=N]` later via FF admin if they want a real form. `check-contact` validator now greps for `mailto:` instead of `fluentform`.
+
+**One residual cosmetic issue** worth flagging on camera if it comes up: the rendered `<title>` tag still reads `BrandName - BrandName`. This is a Rank Math format issue, not a workflow bug — Rank Math's homepage SEO format uses `%title% %sep% %sitename%`, both of which evaluate to the brand name. Not fixed in Session 6 because Beat 3.8's post-deploy demo handles a different edit (email swap) instead.
 
 ## File map — what does what
 
@@ -95,7 +99,7 @@ mega-kadence-skill/
 ├── .gitignore                         # Protects .env + intake.json
 │
 ├── .archon/
-│   ├── workflows/deploy-pod-store.yaml   # The 43-node DAG
+│   ├── workflows/deploy-pod-store.yaml   # The 46-node DAG
 │   ├── commands/                         # 7 atomic AI command files
 │   │   ├── apply-theme-config.md         # Phase 1: palette, fonts, dark CSS
 │   │   ├── create-products-and-categories.md  # Phase 3: WC products
@@ -166,6 +170,8 @@ Bugs 1–6 were caught by the harness's own validators during build runs. Bug 7 
 
 These are known and acceptable for v1, but worth knowing:
 
+- **Rendered `<title>` tag reads `BrandName - BrandName` on the homepage.** Root cause: Rank Math's homepage SEO format uses `%title% %sep% %sitename%`, both of which evaluate to the brand name (the homepage post's title field is set to brand_name and `blogname` option is also brand_name). The Session-6 tagline fix updated `blogdescription`, which Rank Math does NOT consume on the homepage by default. Two fix paths if a future Claude needs this clean: (a) configure Rank Math's `rank_math_options_titles` option to use `%title% %sep% %sitedesc%` for the homepage, OR (b) update `create-homepage.md` to set the homepage post's title field to the AI-generated tagline instead of brand_name. Parked because Tier 1 video's Beat 3.8 was retargeted to a different post-deploy edit.
+- **Fluent Forms can't be reliably pre-created via REST API with content fields.** FF's `/wp-json/fluentform/v1/forms` POST endpoint accepts auth via WP App Password but silently drops `form_fields` content sent in the request body. Confirmed in Session 6 testing — multiple payload shapes (JSON object, JSON-stringified, form-urlencoded) all return "Successfully updated" but `form_fields` stays null on subsequent GET. Likely an FF capability check that requires admin-UI nonce, not just a REST permission. Workflow now ships an email CTA instead; students who want a form add one via FF admin (~30 sec one-time step).
 - **Archon needs `claudeBinaryPath` set when `claude` is at a non-default location.** If the student installed Claude Code via the README's `curl claude.ai/install.sh | bash` (default install path `~/.local/bin/claude`), Archon finds it natively. If they installed it via apt/npm/system path (`/usr/bin/claude`, `/usr/local/bin/claude`, etc.), the OAuth wrapper unsets `CLAUDE_CODE_EXECPATH` and Archon errors at the first AI node with *"Claude Code not found."* Fix: write `~/.archon/config.yaml` with `assistants: { claude: { claudeBinaryPath: /absolute/path/to/claude } }`. Adding this to the README troubleshooting section is on the open list. (Confirmed on second-brain VPS, Session 5.)
 - **Repo path is hardcoded to `~/kadence-skill/mega-kadence-skill/`.** All bash nodes use `$HOME/kadence-skill/mega-kadence-skill/...` for sourcing lib files and reading intake.json. Cloning to a different path would break things. Future cleanup: use `ARCHON_PROJECT_ROOT` or have the wrapper export a known env var.
 - **`apply-theme-config.md` is still a 5-step AI command.** Could be split into atomic palette/fonts/title nodes for symmetry, but the value is small since Phase 5b CSS enforcement corrects any drift.

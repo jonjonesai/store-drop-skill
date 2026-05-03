@@ -4,6 +4,70 @@ Chronological history of significant changes to the Mega Kadence Skill.
 
 ---
 
+## Session 6 — 2026-05-04 (late)
+
+**Mission:** prep the skill for the 2026-05-04 22:30 Taipei copilot shoot with beta student Shawn Eppe (Jon's friend; virgin Windows machine, no WSL/Claude). Five "watch-outs" from the Tier 1 video script were going to either look broken or feel slow during the live shoot. Fix them all before camera rolls.
+
+**Outcome:** five fixes shipped + one validator hardening. Validation deploy on cutemerch.love passed clean (46/46 nodes, 0 failed, 11.7 min — slightly faster than Session 5's 12.1 min). Real-time AI heartbeats observed for the first time. Cosmetic warnings filtered. Contact page ships with a working email CTA out of the box.
+
+### The five fixes (each landed, each validated)
+
+1. **Tagline in workflow.** Old: AI defaulted `blogdescription` to `brand_name`, producing a doubled `<title>` that read like `CuteMerch - CuteMerch`. New: `apply-theme-config.md` mandates a 3-7 word tagline generated from `niche`, NOT equal to `brand_name`. New `check-tagline` validator asserts the constraint. Validated tagline in test run: *"merch as cute as your pets"* — five words, brand-fitting, no exclamation marks, no em dashes.
+
+2. **Contact email CTA replacing Fluent Form shortcode.** Old: `templates/contact.html` embedded `[fluentform id="1"]`; form rendered empty because Fluent Forms' REST API silently drops `form_fields` content sent via App Password auth (FF requires its admin-UI capability for field schemas). Confirmed by direct testing — POST `/wp-json/fluentform/v1/forms/{id}` returns "Successfully updated" but `form_fields` stays null on subsequent GET. New: contact page ships with a designed Kadence email-CTA button (`mailto:info@<domain>`) styled with brand palette. Honest default. Students can drop in `[fluentform id=N]` later via FF admin if they want a real form. `check-contact` validator now greps for `mailto:` instead of `fluentform`/`ff-el-form`.
+
+3. **AI-node heartbeats.** Old: each `create-*` AI session ran 75-180 seconds with no terminal output during the silent stretches when the AI used bash tools internally. Read as "frozen" to fresh users. New: each `create-*` command instructs the AI to echo a `[<node>] <action>` status line every ~20 seconds. Validated in test — heartbeats observed in the live log: `[homepage] reading lib files to understand API helpers` / `[homepage] checking FluentForm ID and loading env` / `[homepage] calling /pages/ensure to create the page` / `[homepage] meta set successfully — writing artifact` / `[about] reading intake and template`. UX win.
+
+4. **Legal-pages quoting discipline.** Old: AI hand-constructed JSON bodies via shell quoting; apostrophes in legal prose forced 2-3 minute self-correct cycles per page. New: `create-legal-pages.md` mandates a `python3 -c '...' << EOF` heredoc + `json.dumps()` pattern for every API request body. Quote escaping is automatic. Test run completed legal pages in 2m47s (was 2m58s — marginal win, no regression).
+
+5. **`out_of_credits` warning suppression.** Old: Archon's `provider.claude` module emitted JSON log lines with `claude.rate_limit_event` + `out_of_credits` overage status on every AI call. Cosmetic billing-tier display mismatch but read as broken. New: `deploy.sh` pipes workflow stdout through `grep -v` filter that drops only those specific log lines. Preserves all useful output. Validated: 0 rate_limit_event lines in the Session 6 test log.
+
+### Validator hardening (orthogonal to the 5 fixes but landed in the same commit)
+
+`check-content-style` was rendering `/` and asserting on body class. This was fragile to cold-start ordering: after a true wipe (no front page set), `/` is the blog index, which has different body classes than a Kadence page. The validator failed during the first attempt of Session 6's bundle deploy. Fix: read theme_mods directly via `bridge_get_theme_mod`. Direct upstream check, no dependency on which page renders at `/`. Validated.
+
+### Files changed
+
+```
+.archon/commands/apply-theme-config.md          # tagline mandate
+.archon/commands/create-about.md                # heartbeat
+.archon/commands/create-contact.md              # heartbeat + email-CTA logic
+.archon/commands/create-homepage.md             # heartbeat
+.archon/commands/create-legal-pages.md          # heartbeat + quoting discipline
+.archon/workflows/deploy-pod-store.yaml         # +check-tagline node, hardened check-content-style, updated check-contact validator
+deploy.sh                                       # rate_limit_event filter
+templates/contact.html                          # FF shortcode → email CTA button
+```
+
+Workflow node count: 45 → 46.
+
+### Known limitation surfaced (NOT fixed)
+
+The rendered `<title>` HTML tag for the homepage still reads `BrandName - BrandName` even after this session's tagline fix. Root cause: Rank Math's homepage SEO title format is `%title% %sep% %sitename%` — using the post title (which the workflow sets to brand_name) and the sitename (also brand_name). It does NOT consume the `blogdescription` value where the new tagline lives.
+
+Fix paths (parked):
+- Configure Rank Math's homepage title format via `rank_math_options_titles` option to use `%title% %sep% %sitedesc%` or similar.
+- Or update the homepage post's title field in `create-homepage.md` to be the tagline instead of brand_name.
+
+For Tier 1 video filming, the workaround chosen by Jon: Beat 3.8's post-deploy edit is no longer "set the tagline" — it became "change the contact email from info@ to hello@" (more realistic and avoids the title-format complexity entirely).
+
+### Cutemerch.love post-deploy state at end of session
+
+Site is in a clean dark-mode deploy with:
+- Brand: CuteMerch / Mode: dark / Palette: #FFB7C5 (cherry blossom pink)
+- 7 pages live: home, about, contact (with mailto: hello@cutemerch.love after manual test), shop, privacy-policy, terms-of-service, returns-and-refunds
+- 4 placeholder products, 3 (or 5 — TBD by intake) categories
+- Tagline `blogdescription` = "merch as cute as your pets"
+- Body class confirms `content-style-unboxed content-vertical-padding-hide`
+
+Note: cutemerch.love is NOT the target site for the Shawn shoot — Shawn will use his own Hostinger + URL. Cutemerch.love stays deployed as a reference.
+
+### When the next Claude reads this
+
+If a future bug is reported during/after Shawn's shoot: read this Session 6 entry first, the script doc at `projects/mega-cutemerch-tier1-script.md` second, then HANDOFF.md for the broader context.
+
+---
+
 ## Session 5 — 2026-05-03 (evening)
 
 **Mission:** dry-run the shipped harness on cutemerch.love from the second-brain VPS, polish anything Jon's eye catches, lock the skill before the Tier 1 demo video shoot.
