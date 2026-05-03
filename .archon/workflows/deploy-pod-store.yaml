@@ -66,28 +66,58 @@ nodes:
   - id: intake
     depends_on: [preflight]
     bash: |
-      # Test intake — hardcoded values for pipeline validation
-      # Replace this node with the interactive prompt node for production use
-      mkdir -p $ARTIFACTS_DIR 2>/dev/null || true
-      ARTIFACTS=${ARTIFACTS_DIR:-/tmp/archon-artifacts}
-      mkdir -p "$ARTIFACTS"
-      cat > "$ARTIFACTS/intake.json" << 'INTAKE_EOF'
-      {
-        "brand_name": "CuteMerch",
-        "niche": "cute animal illustrations on everyday products",
-        "mode": "light",
-        "color": "#FF1493",
-        "categories": "T-Shirts, Mugs, Tote Bags",
-        "logo": "skip",
-        "tone": "Warm & Friendly",
-        "heading_font": "Fraunces",
-        "body_font": "Nunito",
-        "tagline": "Adorable designs for everyday life"
+      # Read student-edited intake.json from the canonical repo path,
+      # validate the 6 required fields are present and not still placeholder
+      # values, then copy into both candidate ARTIFACTS_DIRs (workflow's
+      # primary + /tmp/archon-artifacts fallback) so AI sessions and bash
+      # nodes both find it regardless of which dir they resolve.
+      INTAKE_SRC="$HOME/kadence-skill/mega-kadence-skill/intake.json"
+      if [ ! -f "$INTAKE_SRC" ]; then
+        echo "FAIL: $INTAKE_SRC not found."
+        echo "  Run from the repo root:"
+        echo "    cp intake.json.example intake.json"
+        echo "  then edit intake.json with your store details."
+        exit 1
+      fi
+      python3 - "$INTAKE_SRC" <<'PY'
+      import json, sys, re
+      path = sys.argv[1]
+      try:
+        d = json.load(open(path))
+      except Exception as e:
+        print(f"FAIL: {path} is not valid JSON — {e}")
+        sys.exit(1)
+      required = ['brand_name','niche','mode','color','categories','logo']
+      # Only check the two fields that are obvious placeholders — color and
+      # categories may legitimately match the example. brand_name and niche
+      # are unique enough that matching the example == student didn't edit.
+      placeholders = {
+        'brand_name': 'YourBrand',
+        'niche': 'what your products are — describe in 5 to 15 words',
       }
-      INTAKE_EOF
-      echo "INTAKE SAVED to $ARTIFACTS/intake.json"
-      cat "$ARTIFACTS/intake.json"
-    timeout: 5000
+      missing = [k for k in required if k not in d or d[k] in (None,'')]
+      if missing:
+        print(f"FAIL: intake.json missing required fields: {missing}")
+        sys.exit(1)
+      stale = [k for k,v in placeholders.items() if d.get(k) == v]
+      if stale:
+        print(f"FAIL: intake.json still has example placeholder values for: {stale}")
+        print("  Edit intake.json with your actual brand details before running.")
+        sys.exit(1)
+      if d['mode'] not in ('light','dark'):
+        print(f"FAIL: intake.json mode must be 'light' or 'dark', got: {d['mode']!r}")
+        sys.exit(1)
+      if not re.match(r'^#[0-9a-fA-F]{6}$', d['color']):
+        print(f"FAIL: intake.json color must be a 6-digit hex like '#FF1493', got: {d['color']!r}")
+        sys.exit(1)
+      print(f"PASS: intake validated — brand={d['brand_name']!r} mode={d['mode']} color={d['color']}")
+      PY
+      ARTIFACTS=${ARTIFACTS_DIR:-/tmp/archon-artifacts}
+      mkdir -p "$ARTIFACTS" /tmp/archon-artifacts
+      cp "$INTAKE_SRC" "$ARTIFACTS/intake.json"
+      cp "$INTAKE_SRC" /tmp/archon-artifacts/intake.json 2>/dev/null || true
+      echo "intake.json copied to: $ARTIFACTS/intake.json + /tmp/archon-artifacts/intake.json"
+    timeout: 10000
 
   # ================================================================
   # PHASE 2: THEME CONFIG — palette, fonts, dark mode overrides
@@ -109,20 +139,11 @@ nodes:
       [ "$HAS_PALETTE" = "yes" ] && echo "PASS: palette set" || { echo "FAIL: palette not set"; exit 1; }
     timeout: 10000
 
-  # VALIDATE: Dark mode CSS injected (if dark mode)?
-  - id: check-dark-css
-    depends_on: [apply-theme]
-    bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
-      MODE=$(cat $ARTIFACTS_DIR/intake.json | python3 -c "import sys,json;print(json.load(sys.stdin).get('mode','light'))" 2>/dev/null)
-      if [ "$MODE" = "dark" ]; then
-        # Check that custom CSS was injected with dark mode overrides
-        HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
-        echo "$HTML" | grep -q "global-palette4.*!important\|global-palette3.*!important" && echo "PASS: dark mode CSS injected" || { echo "FAIL: dark mode CSS not injected — text will be invisible"; exit 1; }
-      else
-        echo "PASS: light mode — no dark CSS needed"
-      fi
-    timeout: 15000
+  # NOTE: An early check-dark-css validator was removed here. Phase 5b's
+  # 4 granular validators (check-body-text-color, check-logo-color,
+  # check-hero-padding, check-drawer-colors) are authoritative — they run
+  # after the deterministic inject-mode-css bash override, so any dark-mode
+  # CSS issue is caught there with pinpoint failure messages.
 
   # ================================================================
   # PHASE 3: PRODUCTS + CATEGORIES
@@ -143,120 +164,528 @@ nodes:
     timeout: 10000
 
   # ================================================================
-  # PHASE 4: PAGES — homepage, about, contact, legal
+  # PHASE 4: PAGES — atomic per-page nodes, serialized to keep at most
+  # one Claude session active at a time (mitigates session-hang issue).
+  # Each create-* writes $ARTIFACTS_DIR/page-<slug>.json via pages.sh.
+  # A merge step produces pages.json for downstream consumers.
   # ================================================================
 
-  - id: create-pages
+  # ----- HOMEPAGE -----
+  - id: create-homepage
     depends_on: [check-products]
     context: fresh
-    command: create-all-pages
+    command: create-homepage
+    timeout: 240000
 
-  # VALIDATE: All pages return 200?
-  - id: check-pages
-    depends_on: [create-pages]
+  - id: check-homepage
+    depends_on: [create-homepage]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      bridge_check_env || exit 1
+      # Hit the slug URL (/home/) — set-front-page hasn't run yet, so /
+      # is still the blog index until Phase 6 finalize.
+      STATUS="$(bridge_render_status /home/)"
+      [ "$STATUS" = "200" ] || { echo "FAIL: /home/ render returned $STATUS"; exit 1; }
+      echo "PASS: /home/ returns 200"
+      HTML="$(bridge_render /home/)"
+      assert_grep "homepage has Kadence row markup" 'wp-block-kadence-rowlayout' "$HTML" || exit 1
+      assert_grep "homepage embeds a Fluent Form" 'fluentform|ff-el-form' "$HTML" || exit 1
+    timeout: 30000
+
+  # ----- ABOUT -----
+  - id: create-about
+    depends_on: [check-homepage]
+    context: fresh
+    command: create-about
+    timeout: 180000
+
+  - id: check-about
+    depends_on: [create-about]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      bridge_check_env || exit 1
+      STATUS="$(bridge_render_status /about/)"
+      [ "$STATUS" = "200" ] || { echo "FAIL: about render returned $STATUS"; exit 1; }
+      echo "PASS: about returns 200"
+      BRAND="$(intake_brand)"
+      HTML="$(bridge_render /about/)"
+      [ -z "$BRAND" ] || assert_grep "about mentions brand name" "$BRAND" "$HTML" || exit 1
+    timeout: 30000
+
+  # ----- CONTACT -----
+  - id: create-contact
+    depends_on: [check-about]
+    context: fresh
+    command: create-contact
+    timeout: 180000
+
+  - id: check-contact
+    depends_on: [create-contact]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      bridge_check_env || exit 1
+      STATUS="$(bridge_render_status /contact/)"
+      [ "$STATUS" = "200" ] || { echo "FAIL: contact render returned $STATUS"; exit 1; }
+      echo "PASS: contact returns 200"
+      HTML="$(bridge_render /contact/)"
+      assert_grep "contact embeds a Fluent Form" 'fluentform|ff-el-form' "$HTML" || exit 1
+    timeout: 30000
+
+  # ----- LEGAL (3 pages) -----
+  - id: create-legal-pages
+    depends_on: [check-contact]
+    context: fresh
+    command: create-legal-pages
+    timeout: 240000
+
+  - id: check-legal-pages
+    depends_on: [create-legal-pages]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      bridge_check_env || exit 1
       FAIL=0
-      for P in / /about/ /contact/ /shop/ /privacy-policy/ /terms-of-service/ /returns-and-refunds/; do
-        STATUS=$(curl -s --max-time 10 "${BRIDGE_URL}/render?url=${P}" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
-        if [ "$STATUS" = "200" ]; then
-          echo "PASS: ${P}"
+      for P in /privacy-policy/ /terms-of-service/ /returns-and-refunds/; do
+        S="$(bridge_render_status "$P")"
+        if [ "$S" = "200" ]; then
+          echo "PASS: $P"
         else
-          echo "FAIL: ${P} returned ${STATUS}"
+          echo "FAIL: $P returned $S"
           FAIL=1
         fi
       done
-      [ $FAIL -eq 0 ] && echo "ALL PAGES PASS" || exit 1
+      [ $FAIL -eq 0 ] || exit 1
     timeout: 60000
 
-  # VALIDATE: Zero block recovery warnings?
-  - id: check-blocks
-    depends_on: [check-pages]
+  # ----- DETERMINISTIC POST-PROCESSING -----
+  - id: normalize-blocks
+    depends_on: [check-legal-pages]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
-      AUTH="${BRIDGE_USER}:${BRIDGE_PASS}"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      bridge_check_env || exit 1
       FAIL=0
-
-      # Get page IDs for content pages (home, about, contact)
       for SLUG in home about contact; do
-        PID=$(curl -s "${BRIDGE_URL}/posts/find?slug=${SLUG}&type=page" -u "$AUTH" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
-        if [ -n "$PID" ]; then
-          WARNS=$(curl -s "$(echo $BRIDGE_URL | sed 's|/mega-kadence-bridge/v1||')/wp/v2/pages/${PID}?context=edit" -u "$AUTH" | python3 -c "import sys,json;r=json.load(sys.stdin).get('content',{}).get('rendered','');print(r.count('block-editor-warning')+r.count('attempt-block-recovery'))" 2>/dev/null)
-          if [ "$WARNS" = "0" ]; then
-            echo "PASS: ${SLUG} — 0 block warnings"
-          else
-            echo "FAIL: ${SLUG} — ${WARNS} block warnings"
-            FAIL=1
-          fi
+        PID="$(pages_get_id "$SLUG")"
+        if [ -z "$PID" ]; then
+          echo "FAIL: missing page-${SLUG}.json artifact"
+          FAIL=1
+          continue
+        fi
+        OUT="$(bridge_post "/posts/${PID}/normalize-blocks" '{}')"
+        echo "  ${SLUG} (id=${PID}): $(printf '%s' "$OUT" | head -c 200)"
+      done
+      bridge_flush_cache
+      [ $FAIL -eq 0 ] && echo "PASS: blocks normalized" || exit 1
+    timeout: 60000
+
+  - id: check-no-block-warnings
+    depends_on: [normalize-blocks]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      bridge_check_env || exit 1
+      WP_BASE="$(echo "$BRIDGE_URL" | sed 's|/mega-kadence-bridge/v1|/wp/v2|')"
+      FAIL=0
+      for SLUG in home about contact; do
+        PID="$(pages_get_id "$SLUG")"
+        [ -z "$PID" ] && { echo "FAIL: missing $SLUG artifact"; FAIL=1; continue; }
+        WARNS="$(curl -s --max-time 15 "${WP_BASE}/pages/${PID}?context=edit" -u "$BRIDGE_AUTH" \
+          | python3 -c "import sys,json;r=json.load(sys.stdin).get('content',{}).get('rendered','');print(r.count('block-editor-warning')+r.count('attempt-block-recovery'))" 2>/dev/null)"
+        if [ "$WARNS" = "0" ]; then
+          echo "PASS: $SLUG — 0 block warnings"
+        else
+          echo "FAIL: $SLUG — $WARNS block warnings"
+          FAIL=1
         fi
       done
       [ $FAIL -eq 0 ] || exit 1
     timeout: 30000
 
-  # VALIDATE: Fluent Forms embedded?
-  - id: check-forms
-    depends_on: [check-pages]
+  - id: merge-page-ids
+    depends_on: [check-legal-pages]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      pages_merge
+    timeout: 10000
+
+  # ================================================================
+  # PHASE 5: HEADER + FOOTER + NAV — pure bash, no AI sessions
+  # All payloads live in lib/chrome.sh (single source of truth).
+  # Logical groups: menus, logo, header, footer, per-page meta.
+  # Each group ends in a validator; chrome-ready gates Phase 5b.
+  # ================================================================
+
+  # ----- GROUP A: MENUS -----
+  - id: ensure-primary-menu
+    depends_on: [check-no-block-warnings, merge-page-ids]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      ID="$(chrome_ensure_menu "Primary Navigation" about contact shop)"
+      [ -n "$ID" ] && echo "PASS: primary menu id=$ID" || { echo "FAIL: primary menu not created"; exit 1; }
+    timeout: 30000
+
+  - id: ensure-footer-menu
+    depends_on: [ensure-primary-menu]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      ID="$(chrome_ensure_menu "Footer Legal" privacy-policy returns-and-refunds terms-of-service)"
+      [ -n "$ID" ] && echo "PASS: footer menu id=$ID" || { echo "FAIL: footer menu not created"; exit 1; }
+    timeout: 30000
+
+  - id: assign-menu-locations
+    depends_on: [ensure-footer-menu]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      P="$(chrome_get_menu_id "Primary Navigation")"
+      F="$(chrome_get_menu_id "Footer Legal")"
+      [ -z "$P" ] && { echo "FAIL: cannot find Primary Navigation"; exit 1; }
+      [ -z "$F" ] && { echo "FAIL: cannot find Footer Legal"; exit 1; }
+      chrome_assign_menu_locations "$P" "$F"
+      echo "PASS: locations assigned (primary=$P footer=$F)"
+    timeout: 15000
+
+  - id: check-menus
+    depends_on: [assign-menu-locations]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      bridge_check_env || exit 1
+      LOC="$(bridge_get_theme_mod nav_menu_locations)"
+      # bridge_get_theme_mod returns compact-ish JSON with optional whitespace
+      # after colons (python json.dumps default). Pattern allows either.
+      assert_grep "primary location set" '"primary":[[:space:]]*[0-9]+' "$LOC" || exit 1
+      assert_grep "footer location set"  '"footer":[[:space:]]*[0-9]+'  "$LOC" || exit 1
+    timeout: 15000
+
+  # ----- GROUP B: LOGO -----
+  - id: upload-logo
+    depends_on: [check-menus]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      LOGO="$(intake_get logo)"
+      mkdir -p "${ARTIFACTS_DIR:-/tmp/archon-artifacts}"
+      LOGO_FILE="${ARTIFACTS_DIR:-/tmp/archon-artifacts}/logo.json"
+      if [ -z "$LOGO" ] || [ "$LOGO" = "skip" ] || [ "$LOGO" = "none" ]; then
+        echo '{"id":""}' > "$LOGO_FILE"
+        echo "PASS: no logo (text-only branding)"
+      else
+        ID="$(chrome_upload_logo "$LOGO")"
+        echo "{\"id\":\"$ID\",\"url\":\"$LOGO\"}" > "$LOGO_FILE"
+        [ -n "$ID" ] && echo "PASS: logo uploaded id=$ID" || { echo "FAIL: logo upload returned empty id"; exit 1; }
+      fi
+    timeout: 60000
+
+  - id: set-logo-config
+    depends_on: [upload-logo]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      LOGO_FILE="${ARTIFACTS_DIR:-/tmp/archon-artifacts}/logo.json"
+      ID="$(python3 -c "import json,sys;print(json.load(open('$LOGO_FILE')).get('id','') or '')" 2>/dev/null)"
+      chrome_set_logo_config "$ID"
+      bridge_flush_cache
+      echo "PASS: logo config applied (id='${ID:-text-only}')"
+    timeout: 15000
+
+  - id: check-logo-rendered
+    depends_on: [set-logo-config]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      bridge_check_env || exit 1
+      HTML="$(bridge_render /)"
+      assert_grep "logo or site-title rendered" 'custom-logo|site-title|site-branding' "$HTML" || exit 1
+    timeout: 15000
+
+  # ----- GROUP C: HEADER -----
+  - id: configure-header-builder
+    depends_on: [check-logo-rendered]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      chrome_configure_header_builder
+      echo "PASS: header builder slots written"
+    timeout: 15000
+
+  - id: configure-sticky-transparent
+    depends_on: [configure-header-builder]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      chrome_configure_sticky_transparent
+      echo "PASS: sticky + transparent settings written"
+    timeout: 15000
+
+  - id: set-header-bg
+    depends_on: [configure-sticky-transparent]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      chrome_set_header_bg "$MODE"
+      bridge_flush_cache
+      echo "PASS: header bg set (mode=$MODE)"
+    timeout: 15000
+
+  - id: check-header-config
+    depends_on: [set-header-bg]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      bridge_check_env || exit 1
+      DESK="$(bridge_get_theme_mod header_desktop_items)"
+      MOB="$(bridge_get_theme_mod header_mobile_items)"
+      BG="$(bridge_get_theme_mod header_main_background)"
+      MODE="$(intake_mode)"
+      assert_grep "desktop main_left has logo"        '"main_left":\[[^]]*"logo"'        "$DESK" || exit 1
+      assert_grep "desktop main_right has navigation" '"main_right":\[[^]]*"navigation"' "$DESK" || exit 1
+      assert_grep "mobile main_left has mobile-logo"  '"main_left":\[[^]]*"mobile-logo"' "$MOB"  || exit 1
+      assert_grep "mobile main_right has popup-toggle" '"main_right":\[[^]]*"popup-toggle"' "$MOB" || exit 1
+      if [ "$MODE" = "dark" ]; then
+        assert_grep "header bg = palette8 (dark)" 'palette8' "$BG" || exit 1
+      else
+        assert_grep "header bg = palette9 (light)" 'palette9' "$BG" || exit 1
+      fi
+    timeout: 15000
+
+  # ----- GROUP D: FOOTER -----
+  - id: configure-footer-builder
+    depends_on: [check-header-config]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      BRAND="$(intake_brand)"
+      TAGLINE="$(intake_get tagline)"
+      chrome_configure_footer_builder "$BRAND" "$TAGLINE"
+      echo "PASS: footer builder slots written (brand='$BRAND')"
+    timeout: 15000
+
+  - id: set-footer-bg
+    depends_on: [configure-footer-builder]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      chrome_set_footer_bg "$MODE"
+      bridge_flush_cache
+      echo "PASS: footer bg set (mode=$MODE)"
+    timeout: 15000
+
+  - id: check-footer-config
+    depends_on: [set-footer-bg]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      bridge_check_env || exit 1
+      ITEMS="$(bridge_get_theme_mod footer_items)"
+      BG="$(bridge_get_theme_mod footer_wrap_background)"
+      MODE="$(intake_mode)"
+      assert_grep "footer middle_1 has footer-html"       '"middle_1":\[[^]]*"footer-html"'       "$ITEMS" || exit 1
+      assert_grep "footer middle_2 has footer-navigation" '"middle_2":\[[^]]*"footer-navigation"' "$ITEMS" || exit 1
+      if [ "$MODE" = "dark" ]; then
+        assert_grep "footer bg = palette7 (dark mode surface)" 'palette7' "$BG" || exit 1
+      else
+        assert_grep "footer bg = palette3 (light mode dark footer)" 'palette3' "$BG" || exit 1
+      fi
+    timeout: 15000
+
+  # ----- GROUP E: PER-PAGE TRANSPARENT META -----
+  - id: set-per-page-transparent
+    depends_on: [check-footer-config]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      bridge_check_env || exit 1
+      chrome_set_per_page_transparent
+      echo "PASS: _kad_post_transparent enabled on home/about/contact"
+    timeout: 30000
+
+  - id: check-per-page-transparent
+    depends_on: [set-per-page-transparent]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      bridge_check_env || exit 1
       FAIL=0
-
-      # Check homepage for newsletter form
-      HOME_FF=$(curl -s "https://$(echo $BRIDGE_URL | sed 's|.*://||;s|/wp-json.*||')/" | grep -ci "fluentform\|ff-el-form")
-      [ "$HOME_FF" -gt 0 ] && echo "PASS: homepage has Fluent Form (${HOME_FF} refs)" || { echo "FAIL: homepage missing Fluent Form"; FAIL=1; }
-
-      # Check contact page for contact form
-      CONTACT_FF=$(curl -s "https://$(echo $BRIDGE_URL | sed 's|.*://||;s|/wp-json.*||')/contact/" | grep -ci "fluentform\|ff-el-form")
-      [ "$CONTACT_FF" -gt 0 ] && echo "PASS: contact has Fluent Form (${CONTACT_FF} refs)" || { echo "FAIL: contact missing Fluent Form"; FAIL=1; }
-
+      for SLUG in home about contact; do
+        PID="$(pages_get_id "$SLUG")"
+        [ -z "$PID" ] && { echo "FAIL: missing $SLUG artifact"; FAIL=1; continue; }
+        # Bridge has no /posts/{id}/meta/{key} endpoint — fetch the full
+        # post and extract from .meta. WordPress stores meta as arrays
+        # when registered with single=false, so the value may be either
+        # 'enable' or ['enable'] — accept both.
+        VAL="$(bridge_get "/posts/${PID}" \
+          | python3 -c 'import json,sys;m=json.load(sys.stdin).get("meta",{}).get("_kad_post_transparent","");print(m[0] if isinstance(m,list) and m else (m if not isinstance(m,list) else ""))' 2>/dev/null)"
+        if [ "$VAL" = "enable" ]; then
+          echo "PASS: $SLUG transparent=enable"
+        else
+          echo "FAIL: $SLUG transparent='$VAL' (expected 'enable')"
+          FAIL=1
+        fi
+      done
       [ $FAIL -eq 0 ] || exit 1
-    timeout: 20000
+    timeout: 30000
 
-  # ================================================================
-  # PHASE 5: HEADER + FOOTER + NAV
-  # ================================================================
-
-  - id: configure-chrome
-    depends_on: [check-blocks, check-forms]
-    context: fresh
-    command: configure-header-footer-nav
+  # ----- CHROME GATE -----
+  - id: chrome-ready
+    depends_on:
+      - check-menus
+      - check-logo-rendered
+      - check-header-config
+      - check-footer-config
+      - check-per-page-transparent
     trigger_rule: all_success
-
-  # VALIDATE: Header has logo + nav + mobile trigger?
-  - id: check-header
-    depends_on: [configure-chrome]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
-      HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
-      FAIL=0
+      echo "CHROME PASS — menus, logo, header, footer, per-page meta all green"
+    timeout: 5000
 
-      echo "$HTML" | grep -qi "custom-logo\|site-title" && echo "PASS: logo/title present" || { echo "FAIL: no logo or site title"; FAIL=1; }
-      echo "$HTML" | grep -q "menu-item" && echo "PASS: nav menu present" || { echo "FAIL: no nav menu items"; FAIL=1; }
-      echo "$HTML" | grep -qi "popup-toggle\|menu-toggle-open" && echo "PASS: mobile trigger present" || { echo "FAIL: no mobile trigger"; FAIL=1; }
+  # ================================================================
+  # PHASE 5b: MODE-CSS ENFORCEMENT — bash override layer
+  # The AI nodes above MAY have injected the right CSS. These nodes
+  # GUARANTEE it: deterministic re-injection from a single source of
+  # truth, then granular validators that pinpoint which rule is missing.
+  # Light mode: only drawer CSS is required; other validators auto-pass.
+  # Dark mode: all four validators must pass.
+  # ================================================================
 
-      [ $FAIL -eq 0 ] || exit 1
-    timeout: 15000
-
-  # VALIDATE: Footer has brand + legal links?
-  - id: check-footer
-    depends_on: [configure-chrome]
+  - id: apply-dark-bg-mods
+    depends_on: [chrome-ready]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
-      BRAND=$(cat $ARTIFACTS_DIR/intake.json | python3 -c "import sys,json;print(json.load(sys.stdin).get('brand_name',''))" 2>/dev/null)
-      HTML=$(curl -s "${BRIDGE_URL}/render?url=/" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('html',''))" 2>/dev/null)
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/dark-mode-css.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      apply_dark_bg_mods "$MODE"
+      echo "PASS: dark bg mods applied (mode=$MODE)"
+    timeout: 30000
 
-      echo "$HTML" | grep -qi "$BRAND" && echo "PASS: brand name in footer" || echo "WARN: brand name not found"
-      echo "$HTML" | grep -qi "privacy" && echo "PASS: privacy link" || echo "WARN: no privacy link"
-      echo "$HTML" | grep -qi "returns\|refund" && echo "PASS: returns link" || echo "WARN: no returns link"
-      echo "$HTML" | grep -qi "terms" && echo "PASS: terms link" || echo "WARN: no terms link"
-      echo "FOOTER CHECK DONE"
-    timeout: 15000
+  - id: inject-mode-css
+    depends_on: [apply-dark-bg-mods]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/dark-mode-css.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      inject_mode_css "$MODE"
+      echo "PASS: mode CSS injected (mode=$MODE)"
+    timeout: 60000
+
+  - id: check-body-text-color
+    depends_on: [inject-mode-css]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      if [ "$MODE" != "dark" ]; then
+        echo "PASS: light mode — body text color check skipped"
+        exit 0
+      fi
+      HTML="$(bridge_render /)"
+      assert_grep "body text rule with palette4 !important present" \
+        'body[^{]*\{[^}]*palette4[^}]*!important' "$HTML"
+    timeout: 30000
+
+  - id: check-logo-color
+    depends_on: [inject-mode-css]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      if [ "$MODE" != "dark" ]; then
+        echo "PASS: light mode — logo color check skipped"
+        exit 0
+      fi
+      HTML="$(bridge_render /)"
+      assert_grep "site-title rule with palette9 !important present" \
+        'site-title[^{]*\{[^}]*palette9[^}]*!important' "$HTML"
+    timeout: 30000
+
+  - id: check-hero-padding
+    depends_on: [inject-mode-css]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      if [ "$MODE" != "dark" ]; then
+        echo "PASS: light mode — hero padding check skipped"
+        exit 0
+      fi
+      HTML="$(bridge_render /)"
+      assert_grep "entry-content-wrap padding:0 !important present" \
+        'entry-content-wrap[^{]*\{[^}]*padding:[^}]*0[^}]*!important' "$HTML"
+    timeout: 30000
+
+  - id: check-drawer-colors
+    depends_on: [inject-mode-css]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      bridge_check_env || exit 1
+      MODE="$(intake_mode)"
+      HTML="$(bridge_render /)"
+      if [ "$MODE" = "dark" ]; then
+        assert_grep "drawer-inner background palette8 (dark)" \
+          'drawer-inner[^{]*\{[^}]*palette8' "$HTML"
+      else
+        assert_grep "drawer-inner background palette9 (light)" \
+          'drawer-inner[^{]*\{[^}]*palette9' "$HTML"
+      fi
+    timeout: 30000
+
+  - id: dark-mode-gate
+    depends_on:
+      - check-body-text-color
+      - check-logo-color
+      - check-hero-padding
+      - check-drawer-colors
+    trigger_rule: all_success
+    bash: |
+      echo "MODE-CSS ENFORCEMENT PASS — all 4 validators green"
+    timeout: 5000
 
   # ================================================================
   # PHASE 6: FRONT PAGE + FLUSH + FINAL REPORT
   # ================================================================
 
   - id: finalize
-    depends_on: [check-header, check-footer]
+    depends_on: [dark-mode-gate]
     context: fresh
     command: set-front-page-and-report
     trigger_rule: all_success

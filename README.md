@@ -1,147 +1,153 @@
 # Mega Kadence Skill
 
-A Claude Code skill that deploys fully branded POD (print-on-demand) stores on WordPress + Kadence + WooCommerce through natural language. Paired with [Mega Kadence Bridge](https://github.com/jonjonesai/mega-kadence-bridge) (the WordPress plugin that provides the REST API).
+Deploy a fully branded WordPress + Kadence + WooCommerce print-on-demand store in ~15 minutes.
 
-## What It Does
+The deploy is run by an Archon workflow with deterministic bash validators after every step. If anything goes wrong, the workflow halts loud — your site never ends up silently broken.
 
-You describe your store. Claude builds it. In under 15 minutes you get:
-
-- A 7-section branded homepage (hero, products, story, trust row, CTA, newsletter, footer)
-- About, Contact, and Shop pages
-- Privacy Policy, Terms of Service, Returns & Refunds pages
-- Navigation menus wired up
-- Brand colors, fonts, and logo applied globally
-- 4 placeholder products in WooCommerce
-- Everything WCAG 2.1 AA accessible
-
-All through conversation with Claude -- no WordPress knowledge required.
+Part of the [MEGA](https://mega.management) ecosystem alongside [Mega Kadence Bridge](https://github.com/jonjonesai/mega-kadence-bridge) (the WordPress plugin that exposes the REST API).
 
 ## Prerequisites
 
-1. A Hostinger WordPress hosting account ($2.99/mo)
-2. Kadence Theme (free) and Kadence Blocks (free) installed
-3. WooCommerce installed
-4. [Mega Kadence Bridge](https://github.com/jonjonesai/mega-kadence-bridge/releases/latest) plugin installed and activated
-5. [Claude Code](https://claude.ai/code) installed on your computer
+A WordPress site (Hostinger or similar) with these plugins installed and active:
 
-## Quick Start
+- Kadence theme + Pro
+- Kadence Blocks + Pro
+- WooCommerce
+- [Mega Kadence Bridge](https://github.com/jonjonesai/mega-kadence-bridge/releases/latest)
+- Fluent Forms
+- Rank Math SEO
+- LiteSpeed Cache
+
+Locally:
+
+- [Claude Code](https://claude.com/claude-code) installed (`claude` on your PATH)
+- [Archon CLI](https://github.com/coleam00/Archon) installed (`archon` on your PATH)
+- This repo cloned to `~/kadence-skill/mega-kadence-skill`
+
+## One-time setup (do this once, ever)
+
+If you're on Windows: install WSL first.
+
+```powershell
+# In PowerShell as administrator (Windows only):
+wsl --install
+# Restart Windows. Open Ubuntu from Start menu — that's your terminal from now on.
+```
+
+Then in your unix terminal (WSL on Windows / Terminal on Mac / any shell on Linux):
+
+```bash
+# Install Claude Code
+curl -fsSL https://claude.ai/install.sh | bash
+
+# Authenticate Claude Code once (opens a browser)
+claude
+# log in, then exit (Ctrl+D or type "exit")
+
+# Install Archon CLI
+curl -fsSL https://archon.diy/install | bash
+
+# Clone this repo to the expected path
+mkdir -p ~/kadence-skill
+cd ~/kadence-skill
+git clone https://github.com/jonjonesai/mega-kadence-skill
+cd mega-kadence-skill
+```
+
+You're now in the repo. Setup is done.
+
+## Per-deploy (do this for each new store)
 
 ### 1. Install the bridge plugin
 
-Download the [latest release ZIP](https://github.com/jonjonesai/mega-kadence-bridge/releases/latest), upload via WP Admin > Plugins > Add New > Upload Plugin, activate.
+Download the [latest release ZIP](https://github.com/jonjonesai/mega-kadence-bridge/releases/latest), upload via WP Admin → Plugins → Add New → Upload Plugin, activate.
 
-### 2. Get your credentials
+### 2. Get bridge credentials
 
-Go to Settings > Mega Kadence Bridge, click "Copy as .env", paste into a file called `.env` in your project folder.
+In WordPress: **Settings → Mega Kadence Bridge → "Copy Environment Variables"**. The button copies a small block of text to your clipboard.
 
-### 3. Start Claude Code and paste this
+### 3. Run the deploy
 
-```
-I'm setting up my MEGA store. Please ask me the 6 setup questions
-one at a time, then build everything when you have my answers.
-
-Load the Mega Kadence Skill from:
-https://raw.githubusercontent.com/jonjonesai/mega-kadence-skill/main/SKILL.md
-
-My .env file is in this project folder with my bridge credentials.
-```
-
-### 4. Answer 6 questions
-
-Claude asks about your store name, niche, style preference, brand color, product categories, and logo. Answer each one and Claude builds your entire store.
-
-## Repository Structure
-
-```
-mega-kadence-skill/
-├── SKILL.md                        Main skill (what Claude loads)
-├── INTAKE.md                       6-question student intake wizard
-├── deploy-pod-store.md             End-to-end deployment orchestrator
-├── recipes/
-│   ├── deploy-homepage.md          7-section homepage builder
-│   ├── deploy-about.md             About page builder
-│   ├── deploy-contact.md           Contact page builder
-│   ├── deploy-legal-pages.md       Legal pages (Privacy, Terms, Returns, Cookie)
-│   ├── set-palette.md              9-slot color palette (light + dark mode)
-│   ├── set-fonts-by-tone.md        10 tone-based font pairings
-│   ├── build-nav-menus.md          Primary + footer menu wiring
-│   └── verify-deployment.md        Render-and-grep verification loop
-├── boilerplate/
-│   ├── privacy-policy.md           Template with {brand_name} placeholders
-│   ├── terms-of-service.md
-│   ├── returns-and-refunds.md
-│   └── cookie-policy.md
-├── templates/
-│   ├── homepage.html               Proven-valid homepage block content
-│   ├── about.html                  Proven-valid about page block content
-│   ├── contact.html                Proven-valid contact page block content
-│   └── README.md                   Template usage guide
-├── references/
-│   ├── mkb-api-reference.md        MKB v1.0.3 endpoint cheat sheet
-│   ├── kadence-block-patterns.md   Proven block markup snippets
-│   ├── tone-font-pairings.md       Font pairing matrix
-│   └── hostinger-gotchas.md        Hosting-specific fixes
-├── LICENSE                         GPL v2+
-└── .gitignore
-```
-
-## The MEGA Ecosystem
-
-This skill is part of the [MEGA](https://mega.management) print-on-demand ecosystem:
-
-- **MEGA Wholesale** (app.mega.management) -- AI-powered POD product generation
-- **Mega Kadence Bridge** -- WordPress REST API plugin for Claude control
-- **Mega Kadence Skill** -- This repo. The brain that drives deployment
-
-Together, they let anyone launch a branded POD store in a weekend at $3/month hosting instead of $40/month on Shopify.
-
-## Archon Workflow (Recommended)
-
-This skill includes an [Archon](https://github.com/coleam00/Archon) workflow that enforces the deploy sequence with bash validation checkpoints between every phase. Instead of Claude reading a markdown file and hoping to follow it, the workflow DAG enforces step order and fails fast if anything is wrong.
-
-### Install and run
+From the repo root:
 
 ```bash
-# Install Archon
-curl -fsSL https://archon.diy/install | bash
-
-# Run the deploy workflow
-archon workflow run deploy-pod-store
+./deploy.sh
 ```
 
-### What the workflow validates
+The script walks you through everything — no editor required:
 
-| Checkpoint | What it checks |
+1. **First it asks for your bridge credentials.** Paste the env block you just copied, then press `Ctrl+D` on a new line.
+2. **Then it asks 6 questions about your store** — brand name, what you sell, light or dark mode, your brand color, product categories, optional logo URL. Just type the answers as it asks.
+3. **Then it deploys.** ~15 minutes, prints `[node] Started/Completed` for each of 43 steps, ends with `DEPLOYMENT SUCCESSFUL`.
+
+Visit your site — homepage, about, contact, shop, and 3 legal pages, all live.
+
+### Re-running
+
+`./deploy.sh` is idempotent — running it again with no changes won't break anything. To change your answers:
+
+- `./deploy.sh --intake` — re-prompts the 6 store questions, keeps your bridge creds
+- `./deploy.sh --reset` — re-prompts everything from scratch
+
+## Tweaking after the deploy
+
+Any change you want — a new headline, swap an image, add a section — just ask Claude one-off:
+
+```bash
+claude
+```
+
+Then in plain English:
+
+> On cutemerch.love, change the homepage headline to "Cute Merch For Everyone".
+
+> Add a customer-reviews section above the footer.
+
+> Replace the hero image with this one: https://cdn.example.com/new-hero.jpg.
+
+Claude uses the bridge directly for one-off edits — no workflow run needed.
+
+## How the harness works
+
+The deploy is a 43-node DAG. Most nodes are deterministic bash; a few are AI sessions for things that need judgment (page copy generation). After every state-changing node, a validator hits the live site and checks the change actually took effect. If it didn't, the workflow halts loud — failure is impossible to ship.
+
+Major validation gates:
+
+| Gate | Catches |
 |---|---|
-| `preflight` | Bridge reachable, WooCommerce active, Pro plugins installed |
-| `check-palette` | Palette was actually applied to the site |
-| `check-dark-css` | Dark mode CSS injected (if dark mode selected) |
-| `check-products` | At least 4 products exist and are featured |
-| `check-pages` | All 7 pages return HTTP 200 |
-| `check-blocks` | Zero "Attempt Block Recovery" warnings in wp-admin |
-| `check-forms` | Fluent Forms shortcodes rendering on homepage + contact |
-| `check-header` | Logo/title, nav menu, and mobile trigger all present |
-| `check-footer` | Brand name and legal links in footer |
-| `final-check` | Full 7-page sweep — deployment successful or failed |
+| `check-palette` | Palette actually applied |
+| `check-products` | 4+ products exist |
+| `check-homepage`, `check-about`, `check-contact`, `check-legal-pages` | Each page renders 200 with required markup |
+| `check-no-block-warnings` | Zero "Attempt Block Recovery" warnings |
+| `check-menus`, `check-header-config`, `check-footer-config` | Header/footer/nav structurally correct |
+| `check-body-text-color`, `check-logo-color`, `check-hero-padding`, `check-drawer-colors` | Dark-mode CSS rules actually present in rendered HTML |
+| `final-check` | All 7 site URLs return 200 |
 
-### Structure
+The last 4 are the dark-mode failure modes that used to require Claude to remember 11+ gotchas across 300 lines of doc. Now they're enforced by bash.
+
+## Troubleshooting
+
+- **Workflow halts with `FAIL: ...`** — read the message. It tells you exactly which step failed and why. Fix the underlying issue and re-run; the deploy is idempotent (existing pages/menus/products are detected and reused).
+- **`OAuth token expired`** — run `claude` once to refresh.
+- **`Bridge not reachable`** — confirm the URL in `.env`, that the plugin is active, and that app passwords are enabled in WP.
+- **Site still looks broken visually** — that shouldn't happen, every visual concern is enforced by deterministic validators. If something does slip through, open an issue with the rendered HTML attached.
+
+## Repository layout
 
 ```
 .archon/
-├── config.yaml
-├── workflows/
-│   └── deploy-pod-store.yaml    # The DAG — 6 phases, 10 validations
-└── commands/
-    ├── apply-theme-config.md     # Phase 2: palette, fonts, dark mode
-    ├── create-products-and-categories.md  # Phase 3: WC products
-    ├── create-all-pages.md       # Phase 4: all 7 pages
-    ├── configure-header-footer-nav.md    # Phase 5: header/footer/menus
-    └── set-front-page-and-report.md      # Phase 6: finalize
+├── workflows/deploy-pod-store.yaml    # The 43-node DAG
+├── commands/                          # 7 atomic AI command files
+├── lib/                               # Shared bash (bridge, chrome, dark-mode-css, ...)
+└── scripts/run-archon.sh              # OAuth wrapper for Archon
+boilerplate/                           # Legal page text templates
+references/                            # Tone/font pairings, gotchas, API ref
+recipes/                               # Per-page deploy recipes (kept for reference)
+templates/                             # Golden HTML for home/about/contact pages
+intake.json.example                    # Copy + edit
+.env.example                           # Copy + edit
+SKILL.md                               # Old monolithic skill — kept for one-off Claude edits
 ```
-
-## Known Issues (v1)
-
-- **Placeholder product guard checks `product_count == 0`.** If the site already has products from a prior test run or manual creation, the 4 placeholder products won't be created. Manual cleanup of stale test products may be needed before re-running the deploy.
 
 ## License
 
