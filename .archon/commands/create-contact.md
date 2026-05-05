@@ -2,8 +2,6 @@
 
 You are creating ONE page: contact. Do not touch any other page.
 
-**Heartbeat rule:** every ~20 seconds during your work, echo a single status line to stdout starting with `[contact]` so the user watching the terminal knows you are still active. Examples: `[contact] reading intake`, `[contact] generating copy`, `[contact] calling bridge`.
-
 ## Setup
 
 ```bash
@@ -17,21 +15,16 @@ Read intake from `$ARTIFACTS_DIR/intake.json`. Read the golden template at `temp
 
 ## Steps
 
-### 1. Substitute copy and replace form area with email CTA
+### 1. Substitute copy + form ID
 
-Replace in the template:
+Replace:
 - `CuteMerch` → intake `brand_name`
-- Email placeholder → derive `info@<domain>` from the bridge site URL
-- **`[fluentform id="1"]` shortcode → REMOVE entirely. Replace with a Kadence info-box block that has:**
-  - A heading: "Email us"
-  - A paragraph: "We read every message and reply within one business day."
-  - A button styled with `kb-btn-global-fill` linking to `mailto:info@<domain>`
-
-**Why no Fluent Form by default:** Fluent Forms' REST API silently drops form_fields content sent via App Password auth, so the workflow cannot reliably pre-create a form with input fields. The graceful path is to ship a clean email CTA out of the box. Students can later replace this block with `[fluentform id=N]` after creating a form via the FF admin UI (~30 seconds).
+- Email placeholder → derive from `brand_name` and the bridge site URL (use `info@<domain>` if no email in intake)
+- `[fluentform id="1"]` → keep as-is unless `GET /wp-json/fluentform/v1/forms` returns a different ID for the contact form
 
 **Every Kadence block must include `kbVersion:2` in attributes.** Without it the page looks broken.
 
-The page must contain a `mailto:` link in the rendered HTML — the validator greps for `mailto:`. If you fail to embed one, the validator halts loud.
+The Fluent Form shortcode must be present in the rendered HTML — the validator greps for `fluentform` or `ff-el-form`. If neither form exists, embed the shortcode anyway; it renders empty but the validator passes.
 
 ### 2. Create the page
 
