@@ -4,6 +4,32 @@ Chronological history of significant changes to the Mega Kadence Skill.
 
 ---
 
+## Session 7 — 2026-05-05 (late evening)
+
+**Mission:** revert Session 6's email-CTA fallback for contact page. The premise was wrong.
+
+**The mistake (Session 6, fix #2):** the workflow's contact template originally embedded `[fluentform id="1"]`. During Session 6 prep for Shawn's filmed copilot demo, I tried to verify that the workflow could programmatically create form ID 1 with input fields via Fluent Forms' REST API — and hit a brick wall. POST `/wp-json/fluentform/v1/forms/{id}` returned `success: true` but silently dropped `form_fields` content via App Password auth (FF requires admin-UI capability for field schemas). I concluded: "form ID 1 can't be created reliably; the workflow's `[fluentform id="1"]` shortcode is wishful thinking; pivot to a designed email CTA as a graceful fallback."
+
+**The premise was wrong.** Fluent Forms **auto-creates form ID 1 ("Contact Form Demo")** on plugin activation, with proper fields: Name (first/middle/last), Email, Subject, Message, Submit. Every fresh FF install has it. The original workflow's `[fluentform id="1"]` shortcode would have rendered a working contact form on every student deploy without any REST API gymnastics. I doubted the design incorrectly because my REST experiments failed.
+
+**Caught by Jon's eye on cutemerch.love:** he visited the live contact page and noticed the email CTA where a form should be. ("aww i saw just now that cutemerch.love on the contact us page doesnt have a fluent form!")
+
+**Fix:**
+- `templates/contact.html` — restored "Send a Message" heading + `[fluentform id="1"]` shortcode block.
+- `.archon/commands/create-contact.md` — restored original instruction to keep `[fluentform id="1"]` unless `GET /wp-json/fluentform/v1/forms` returns a different contact form ID.
+- `.archon/workflows/deploy-pod-store.yaml` `check-contact` validator — restored to grep for `fluentform|ff-el-form` (was greppin g for `mailto:`).
+
+**Cutemerch.love direct fix:** updated post 522 (the contact page) via wp-cli over SSH to swap the email-CTA block for `[fluentform id="1"]`. Verified the rendered page now shows Name/Email/Subject/Message fields. Submit button inherits nose-boop pink styling from the prior CSS overrides.
+
+**Lessons recorded:**
+1. **REST API failure ≠ feature unavailable.** When `POST /wp-json/{plugin}/v1/...` returns success but silently drops content, suspect a capability/permission boundary specific to App Password auth, not a missing platform feature. Try the wp-cli + WordPress runtime path before pivoting away from the design.
+2. **Plugin defaults matter.** Fluent Forms auto-creates form ID 1 on activation. Several other WP plugins do similar. Audit plugin defaults before assuming you need to create them yourself.
+3. **User-eye verification beats validator pass.** The Session 6 `check-contact` validator (grepping for `mailto:`) passed because the email-CTA was rendering correctly. But the page failed Jon's product expectations because the *intent* of the contact page is "form for users to send messages." Validators can confirm "the change took effect" but not "the change was the right change." Visual eyeball remains essential.
+
+**Net change to bug catalogue (HANDOFF.md):** the Session 6 "fix #2" (email CTA replacing FF shortcode) is reversed. The original design was correct. Bug count stays at 7; this isn't a new bug, it's a correction of a misdiagnosis.
+
+---
+
 ## Session 6 — 2026-05-04 (late)
 
 **Mission:** prep the skill for the 2026-05-04 22:30 Taipei copilot shoot with beta student Shawn Eppe (Jon's friend; virgin Windows machine, no WSL/Claude). Five "watch-outs" from the Tier 1 video script were going to either look broken or feel slow during the live shoot. Fix them all before camera rolls.

@@ -295,11 +295,13 @@ nodes:
       [ "$STATUS" = "200" ] || { echo "FAIL: contact render returned $STATUS"; exit 1; }
       echo "PASS: contact returns 200"
       HTML="$(bridge_render /contact/)"
-      # Bug-fix Session 6: contact page now uses an email CTA, not a Fluent Form
-      # shortcode. FF's REST API silently drops form_fields content sent via App
-      # Password auth, so pre-creating a form with inputs is unreliable. Email
-      # CTA is the graceful default; students can drop in a real form via FF admin.
-      assert_grep "contact embeds an email link" 'href="mailto:' "$HTML" || exit 1
+      # Fluent Forms auto-creates form ID 1 ("Contact Form Demo") on plugin
+      # activation with proper Name/Email/Subject/Message fields. Every fresh
+      # FF install has it. The contact template embeds [fluentform id="1"]
+      # which renders as a working contact form out of the box. Session 6
+      # incorrectly pivoted to email-CTA after a failed REST API experiment;
+      # Session 7+ reverted that — the auto-created form was always sufficient.
+      assert_grep "contact embeds a Fluent Form" 'fluentform|ff-el-form' "$HTML" || exit 1
     timeout: 30000
 
   # ----- LEGAL (3 pages) -----
