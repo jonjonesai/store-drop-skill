@@ -127,7 +127,7 @@ chrome_set_logo_config() {
 import json
 print(json.dumps({'mods':{
   'custom_logo': int('$logo_id'),
-  'logo_width': {'size':{'desktop':180,'tablet':140,'mobile':120},'unit':{'desktop':'px','tablet':'px','mobile':'px'}},
+  'logo_width': {'size':{'desktop':280,'tablet':140,'mobile':120},'unit':{'desktop':'px','tablet':'px','mobile':'px'}},
   'logo_layout': {'include':{'desktop':'logo','tablet':'logo','mobile':'logo'},'layout':{'desktop':'standard','tablet':'','mobile':''}}
 }}))
 ")

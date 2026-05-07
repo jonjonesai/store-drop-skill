@@ -120,7 +120,7 @@ curl -s -X POST "${BRIDGE_URL}/theme-mods/batch" \
   -d '{
     "mods": {
       "custom_logo": ${LOGO_ID},
-      "logo_width": {"size": {"desktop": 275, "tablet": 200, "mobile": 150}, "unit": {"desktop": "px", "tablet": "px", "mobile": "px"}},
+      "logo_width": {"size": {"desktop": 280, "tablet": 140, "mobile": 120}, "unit": {"desktop": "px", "tablet": "px", "mobile": "px"}},
       "logo_layout": {"include":{"desktop":"logo","tablet":"logo","mobile":"logo"},"layout":{"desktop":"standard","tablet":"","mobile":""}}
     }
   }'
