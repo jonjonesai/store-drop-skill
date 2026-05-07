@@ -6,7 +6,9 @@ description: |
   and full theme configuration.
 
   Requires: Kadence Theme + Pro, Kadence Blocks + Pro, WooCommerce,
-  Mega Kadence Bridge v1.0.3+, Fluent Forms, Rank Math SEO, LiteSpeed Cache.
+  Mega Kadence Bridge v1.1.0+, Rank Math SEO, LiteSpeed Cache.
+  Fluent Forms is auto-installed and activated by the DAG via the bridge's
+  /plugins/install-and-activate endpoint (see ensure-fluent-forms node).
 
 provider: claude
 model: sonnet
@@ -58,6 +60,38 @@ nodes:
       [ "$WC" != "True" ] && echo "WARN: WooCommerce not active" && exit 1
       echo "PREFLIGHT PASS"
     timeout: 15000
+
+  # ----- Fluent Forms install + activate -----
+  # Bridge v1.1.0+ exposes /plugins/install-and-activate. The contact-page
+  # template references [fluentform id="1"], which Fluent Forms auto-creates
+  # ("Contact Form Demo") on activation with Name/Email/Subject/Message
+  # fields. This node makes the deploy bulletproof for fresh student sites
+  # that don't have FF pre-installed. Idempotent — endpoint short-circuits
+  # if already active. Runs in parallel with intake.
+  - id: ensure-fluent-forms
+    depends_on: [preflight]
+    bash: |
+      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      bridge_check_env || exit 1
+
+      RESPONSE=$(bridge_post "/plugins/install-and-activate" '{"slug":"fluentform"}')
+
+      SUCCESS=$(echo "$RESPONSE" | python3 -c "import sys,json;print(json.load(sys.stdin).get('success',''))" 2>/dev/null)
+      if [ "$SUCCESS" != "True" ]; then
+        echo "FAIL: Fluent Forms install/activate failed"
+        echo "Response: $RESPONSE"
+        exit 1
+      fi
+
+      ALREADY=$(echo "$RESPONSE" | python3 -c "import sys,json;print(json.load(sys.stdin).get('already_active',''))" 2>/dev/null)
+      PLUGIN=$(echo "$RESPONSE" | python3 -c "import sys,json;print(json.load(sys.stdin).get('plugin',''))" 2>/dev/null)
+
+      if [ "$ALREADY" = "True" ]; then
+        echo "PASS: Fluent Forms already active ($PLUGIN)"
+      else
+        echo "PASS: Fluent Forms installed and activated ($PLUGIN)"
+      fi
+    timeout: 60000
 
   # ================================================================
   # PHASE 1: INTAKE — ask the 6 questions
