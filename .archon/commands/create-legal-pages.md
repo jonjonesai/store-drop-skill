@@ -81,12 +81,15 @@ POST /posts/{id}  with  {
   "meta":{
     "_kad_post_title":"hide",
     "_kad_post_feature":"hide",
-    "_kad_post_vertical_padding":"disable"
+    "_kad_post_vertical_padding":"disable",
+    "_kad_post_layout":"normal"
   }
 }
 ```
 
 Do NOT set `_kad_post_transparent` on legal pages — they use the solid header.
+
+`_kad_post_layout: "normal"` is REQUIRED on legal pages. The site-wide Kadence customizer default is set to `fullwidth` for the homepage / about / contact / shop pages, so legal pages would inherit fullwidth and render long legal copy edge-to-edge — unreadable. `"normal"` overrides per-page so legal text wraps at content width.
 
 ### 4. Write artifact
 

@@ -16,20 +16,35 @@ Use the palette values from the Mode-Specific Checklist in `deploy-pod-store.md`
 
 Read `references/tone-font-pairings.md`. Look up the font pair from the inferred `tone`. Apply via `POST /theme-mods/batch` with `heading_font` and `base_font`.
 
-### 3. Dark mode overrides (ONLY if mode = "dark")
+### 3. Inject site-wide CSS (always run; dark-mode block is conditional)
 
-**This step is CRITICAL for dark mode. Skip for light mode.**
+`POST /css` REPLACES the customizer "Additional CSS" — it does NOT append. Build the full payload in ONE step and submit ONCE so nothing gets overwritten.
 
-**A) Set background theme_mods:**
-```
-POST /theme-mods/batch with:
-- site_background: {"desktop": {"color": "palette8"}}
-- content_background: {"desktop": {"color": ""}}
-- mobile_navigation_color: {"color": "palette9", "hover": "palette1", "active": "palette1", "background": "palette8", "divider": "palette6"}
+**Always include this Fluent Forms / focus-state block** (runs for both light and dark mode, so brand-colored form buttons look right regardless):
+
+```css
+.fluentform .ff-btn-submit,
+.fluentform input[type="submit"],
+.fluentform button[type="submit"] {
+  background: var(--global-palette1) !important;
+  border-color: var(--global-palette1) !important;
+  color: var(--global-palette9) !important;
+}
+.fluentform .ff-btn-submit:hover,
+.fluentform input[type="submit"]:hover,
+.fluentform button[type="submit"]:hover {
+  background: var(--global-palette2) !important;
+  border-color: var(--global-palette2) !important;
+}
+.fluentform .ff-el-form-control:focus {
+  border-color: var(--global-palette1) !important;
+  box-shadow: 0 0 0 1px var(--global-palette1) !important;
+}
 ```
 
-**B) Inject dark mode CSS via POST /css:**
-```
+**Additionally, if `mode == "dark"`, also append this block to the SAME payload before posting:**
+
+```css
 body, .entry-content, .entry-content-wrap, p, h1, h2, h3, h4, h5, h6 { color: var(--global-palette4) !important; }
 h1, h2, h3, h4, h5, h6, .kt-adv-heading, .kt-blocks-info-box-title { color: var(--global-palette3) !important; }
 .site-title, .site-title a, .site-branding .brand, .site-branding a.brand { color: var(--global-palette9) !important; }
@@ -40,7 +55,17 @@ a { color: var(--global-palette1); }
 a:hover { color: var(--global-palette2); }
 ```
 
-**Without this CSS, dark mode sites WILL have invisible text. There are no theme_mod alternatives — Kadence does not have keys like brand_typography_color or heading_color.**
+Then `POST /css` with the combined CSS string.
+
+**For dark mode only, also set background theme_mods (separate from the CSS injection):**
+```
+POST /theme-mods/batch with:
+- site_background: {"desktop": {"color": "palette8"}}
+- content_background: {"desktop": {"color": ""}}
+- mobile_navigation_color: {"color": "palette9", "hover": "palette1", "active": "palette1", "background": "palette8", "divider": "palette6"}
+```
+
+**Without the dark mode block in the CSS, dark mode sites WILL have invisible text.** Kadence has no theme_mod alternatives like `brand_typography_color` or `heading_color` — CSS is the only path.
 
 ### 4. Set site title and tagline
 
