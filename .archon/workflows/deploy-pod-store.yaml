@@ -161,7 +161,6 @@ nodes:
     depends_on: [intake]
     context: fresh
     command: apply-theme-config
-    skills: [mega-kadence-skill]
 
   # VALIDATE: Palette applied correctly?
   - id: check-palette
