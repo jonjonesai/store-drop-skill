@@ -71,13 +71,16 @@ Title casing:
 - `terms-of-service` → "Terms of Service"
 - `returns-and-refunds` → "Returns & Refunds"
 
-WordPress may have a pre-existing draft Privacy Policy. The `/pages/ensure` endpoint returns the existing ID; that's fine — proceed to force-publish in step 3.
+**CRITICAL — pre-existing WordPress draft:** WordPress 5.0+ auto-creates a Privacy Policy draft (slug `privacy-policy`) seeded with WP's "Suggested text:" boilerplate. `/pages/ensure` returns that draft's ID instead of creating a new page, AND IT DOES NOT REPLACE THE EXISTING CONTENT. If you stop here, the published page will show WP's "Suggested text: We collect personal information..." across every section — the brand-substituted content from boilerplate/ never lands on the live site.
 
-### 3. Force-publish + meta
+The fix is mandatory in step 3: always pass `content` explicitly, never rely on `/pages/ensure` to have set it.
+
+### 3. Force-publish + meta + content (ALWAYS — no conditionals)
 
 ```
 POST /posts/{id}  with  {
   "status":"publish",
+  "content":"<wrapped-html — same brand-substituted content from step 2>",
   "meta":{
     "_kad_post_title":"hide",
     "_kad_post_feature":"hide",
@@ -87,9 +90,24 @@ POST /posts/{id}  with  {
 }
 ```
 
+The `content` field is REQUIRED on every legal page — even if step 2 reported the page was newly-created (Privacy Policy is the common one with a pre-existing draft, but Terms of Service and Returns & Refunds may also pre-exist on imported sites). Always re-send the brand-substituted content here. The bridge will overwrite the existing post body with what you send.
+
 Do NOT set `_kad_post_transparent` on legal pages — they use the solid header.
 
-`_kad_post_layout: "normal"` is REQUIRED on legal pages. The site-wide Kadence customizer default is set to `fullwidth` for the homepage / about / contact / shop pages, so legal pages would inherit fullwidth and render long legal copy edge-to-edge — unreadable. `"normal"` overrides per-page so legal text wraps at content width.
+`_kad_post_layout: "normal"` is REQUIRED on legal pages. The site-wide Kadence customizer default is `fullwidth` for the homepage / about / contact / shop, so legal pages would inherit fullwidth and render long legal copy edge-to-edge — unreadable. `"normal"` overrides per-page so legal text wraps at content width.
+
+### 3b. Verify the WP "Suggested text:" boilerplate is gone
+
+Immediately after step 3, fetch the rendered HTML and confirm:
+
+```bash
+RENDER=$(curl -s "${BRIDGE_URL}/render?url=/${SLUG}/" -u "${BRIDGE_USER}:${BRIDGE_PASS}")
+if echo "$RENDER" | grep -qi "Suggested text"; then
+  echo "FAIL: ${SLUG} still contains WP's 'Suggested text:' — content POST didn't take. Re-run step 3 with the content explicit."
+  exit 1
+fi
+echo "PASS: ${SLUG} content replaced cleanly"
+```
 
 ### 4. Write artifact
 

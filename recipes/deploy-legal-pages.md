@@ -95,26 +95,37 @@ curl -s -X POST "${BRIDGE_URL}/pages/ensure" \
 
 ### Step 3: Publish and set page meta
 
-**Important:** `/pages/ensure` may return a pre-existing draft page (e.g. WordPress auto-creates a Privacy Policy draft). It does NOT update the status or content of existing pages. Always follow up with an explicit `POST /posts/{id}` to force `publish` status, set the content, and apply Kadence meta:
+**Important:** `/pages/ensure` may return a pre-existing draft page (e.g. WordPress auto-creates a Privacy Policy draft seeded with "Suggested text:" boilerplate). It does NOT update the status or content of existing pages. ALWAYS follow up with an explicit `POST /posts/{id}` that includes `content` (not just status + meta) to force-replace the WP-default boilerplate with the brand-substituted content. The `content` field is mandatory on every iteration — never conditional, never optional.
 
 ```bash
-for PAGE_ID in $PRIVACY_ID $TERMS_ID $RETURNS_ID; do
+# Map of PAGE_ID -> substituted content (built from boilerplate/ in Step 1)
+declare -A CONTENT_MAP=(
+  [$PRIVACY_ID]="$SUBSTITUTED_PRIVACY_CONTENT"
+  [$TERMS_ID]="$SUBSTITUTED_TERMS_CONTENT"
+  [$RETURNS_ID]="$SUBSTITUTED_RETURNS_CONTENT"
+)
+
+for PAGE_ID in "${!CONTENT_MAP[@]}"; do
+  BODY=$(PAGE_CONTENT="${CONTENT_MAP[$PAGE_ID]}" python3 -c '
+import os, json
+print(json.dumps({
+  "status": "publish",
+  "content": os.environ["PAGE_CONTENT"],
+  "meta": {
+    "_kad_post_title": "hide",
+    "_kad_post_feature": "hide",
+    "_kad_post_vertical_padding": "disable",
+    "_kad_post_layout": "normal"
+  }
+}))')
   curl -s -X POST "${BRIDGE_URL}/posts/${PAGE_ID}" \
     -u "claude-bot:${BRIDGE_PASS}" \
     -H "Content-Type: application/json" \
-    -d '{
-      "status": "publish",
-      "meta": {
-        "_kad_post_title": "hide",
-        "_kad_post_feature": "hide",
-        "_kad_post_vertical_padding": "disable",
-        "_kad_post_layout": "normal"
-      }
-    }'
+    -d "$BODY"
 done
 ```
 
-If the page was a pre-existing draft, also update its content in the same call by adding `"content": "${SUBSTITUTED_CONTENT}"` to the body.
+The `python3 -c json.dumps(...)` pattern handles all quote/apostrophe escaping in legal prose — never hand-construct the JSON via shell-only quoting.
 
 ### Step 4: Flush cache
 
