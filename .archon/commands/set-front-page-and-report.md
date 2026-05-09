@@ -1,6 +1,6 @@
 # Set Front Page and Generate Report
 
-**Credentials:** Read bridge credentials from `~/kadence-skill/mega-kadence-skill/.env` or `/tmp/archon-bridge/.env`. Source the file to get BRIDGE_URL, BRIDGE_USER, BRIDGE_PASS, BRIDGE_SITE. Use HTTP Basic Auth with BRIDGE_USER:BRIDGE_PASS for all API calls.
+**Credentials:** Read bridge credentials from `~/kadence-skill/store-drop-skill/.env` or `/tmp/archon-bridge/.env`. Source the file to get BRIDGE_URL, BRIDGE_USER, BRIDGE_PASS, BRIDGE_SITE. Use HTTP Basic Auth with BRIDGE_USER:BRIDGE_PASS for all API calls.
 
 Read page IDs from `$ARTIFACTS_DIR/pages.json` and intake from `$ARTIFACTS_DIR/intake.json`.
 

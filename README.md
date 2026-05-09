@@ -1,4 +1,4 @@
-# Mega Kadence Skill
+# Store Drop Skill
 
 Deploy a fully branded WordPress + Kadence + WooCommerce print-on-demand store in ~15 minutes.
 
@@ -22,7 +22,7 @@ Locally:
 
 - [Claude Code](https://claude.com/claude-code) installed (`claude` on your PATH)
 - [Archon CLI](https://github.com/coleam00/Archon) installed (`archon` on your PATH)
-- This repo cloned to `~/kadence-skill/mega-kadence-skill`
+- This repo cloned to `~/kadence-skill/store-drop-skill`
 
 ## One-time setup (do this once, ever)
 
@@ -50,8 +50,8 @@ curl -fsSL https://archon.diy/install | bash
 # Clone this repo to the expected path
 mkdir -p ~/kadence-skill
 cd ~/kadence-skill
-git clone https://github.com/jonjonesai/mega-kadence-skill
-cd mega-kadence-skill
+git clone https://github.com/jonjonesai/store-drop-skill
+cd store-drop-skill
 ```
 
 You're now in the repo. Setup is done.
@@ -155,7 +155,7 @@ GPL v2 or later. See [LICENSE](LICENSE).
 
 ## Contributing
 
-Issues and PRs welcome at [github.com/jonjonesai/mega-kadence-skill](https://github.com/jonjonesai/mega-kadence-skill).
+Issues and PRs welcome at [github.com/jonjonesai/store-drop-skill](https://github.com/jonjonesai/store-drop-skill).
 
 ---
 

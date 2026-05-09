@@ -4,7 +4,7 @@
 
 ## What this project is, in one paragraph
 
-Mega Kadence Skill is a deployment system for branded print-on-demand stores on WordPress + Kadence + WooCommerce. A student answers six questions about their brand, runs one terminal command, and ~15 minutes later has a fully configured 7-page storefront — homepage, about, contact, shop, and three legal pages — with palette, fonts, header, footer, navigation, products, and dark/light mode all wired up. The heavy lifting is done by an Archon workflow (a 46-node DAG, up from 43 over Sessions 5+6) that mixes Claude AI sessions for content generation with deterministic bash for everything else, and validates every change against the live site before continuing.
+Store Drop Skill is a deployment system for branded print-on-demand stores on WordPress + Kadence + WooCommerce. A student answers six questions about their brand, runs one terminal command, and ~15 minutes later has a fully configured 7-page storefront — homepage, about, contact, shop, and three legal pages — with palette, fonts, header, footer, navigation, products, and dark/light mode all wired up. The heavy lifting is done by an Archon workflow (a 46-node DAG, up from 43 over Sessions 5+6) that mixes Claude AI sessions for content generation with deterministic bash for everything else, and validates every change against the live site before continuing.
 
 ## Why this iteration matters (the architectural arc)
 
@@ -35,8 +35,8 @@ claude          # log in via browser, then Ctrl+D
 curl -fsSL https://archon.diy/install | bash
 mkdir -p ~/kadence-skill
 cd ~/kadence-skill
-git clone https://github.com/jonjonesai/mega-kadence-skill
-cd mega-kadence-skill
+git clone https://github.com/jonjonesai/store-drop-skill
+cd store-drop-skill
 ```
 
 Everything from here is per-deploy.
@@ -89,7 +89,7 @@ All four of the previous "watch-outs" were FIXED in Session 6 (2026-05-04). Docu
 ## File map — what does what
 
 ```
-mega-kadence-skill/
+store-drop-skill/
 ├── deploy.sh                          # ENTRY POINT for students. Interactive.
 ├── README.md                          # Student-facing docs
 ├── HANDOFF.md                         # This file
@@ -173,7 +173,7 @@ These are known and acceptable for v1, but worth knowing:
 - **Rendered `<title>` tag reads `BrandName - BrandName` on the homepage.** Root cause: Rank Math's homepage SEO format uses `%title% %sep% %sitename%`, both of which evaluate to the brand name (the homepage post's title field is set to brand_name and `blogname` option is also brand_name). The Session-6 tagline fix updated `blogdescription`, which Rank Math does NOT consume on the homepage by default. Two fix paths if a future Claude needs this clean: (a) configure Rank Math's `rank_math_options_titles` option to use `%title% %sep% %sitedesc%` for the homepage, OR (b) update `create-homepage.md` to set the homepage post's title field to the AI-generated tagline instead of brand_name. Parked because Tier 1 video's Beat 3.8 was retargeted to a different post-deploy edit.
 - **Fluent Forms can't be reliably pre-created via REST API with content fields.** FF's `/wp-json/fluentform/v1/forms` POST endpoint accepts auth via WP App Password but silently drops `form_fields` content sent in the request body. Confirmed in Session 6 testing — multiple payload shapes (JSON object, JSON-stringified, form-urlencoded) all return "Successfully updated" but `form_fields` stays null on subsequent GET. Likely an FF capability check that requires admin-UI nonce, not just a REST permission. Workflow now ships an email CTA instead; students who want a form add one via FF admin (~30 sec one-time step).
 - **Archon needs `claudeBinaryPath` set when `claude` is at a non-default location.** If the student installed Claude Code via the README's `curl claude.ai/install.sh | bash` (default install path `~/.local/bin/claude`), Archon finds it natively. If they installed it via apt/npm/system path (`/usr/bin/claude`, `/usr/local/bin/claude`, etc.), the OAuth wrapper unsets `CLAUDE_CODE_EXECPATH` and Archon errors at the first AI node with *"Claude Code not found."* Fix: write `~/.archon/config.yaml` with `assistants: { claude: { claudeBinaryPath: /absolute/path/to/claude } }`. Adding this to the README troubleshooting section is on the open list. (Confirmed on second-brain VPS, Session 5.)
-- **Repo path is hardcoded to `~/kadence-skill/mega-kadence-skill/`.** All bash nodes use `$HOME/kadence-skill/mega-kadence-skill/...` for sourcing lib files and reading intake.json. Cloning to a different path would break things. Future cleanup: use `ARCHON_PROJECT_ROOT` or have the wrapper export a known env var.
+- **Repo path is hardcoded to `~/kadence-skill/store-drop-skill/`.** All bash nodes use `$HOME/kadence-skill/store-drop-skill/...` for sourcing lib files and reading intake.json. Cloning to a different path would break things. Future cleanup: use `ARCHON_PROJECT_ROOT` or have the wrapper export a known env var.
 - **`apply-theme-config.md` is still a 5-step AI command.** Could be split into atomic palette/fonts/title nodes for symmetry, but the value is small since Phase 5b CSS enforcement corrects any drift.
 - **`set-front-page-and-report.md` is the only AI node in Phase 6.** Could be replaced with deterministic bash, but the AI handles printing the summary nicely.
 - **Fluent Form shortcodes render empty if forms don't exist.** The validator checks the shortcode is embedded but not that the form ID resolves. Acceptable — students set up forms after deploy.

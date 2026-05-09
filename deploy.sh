@@ -8,7 +8,7 @@
 #   ./deploy.sh --intake     # only refresh intake.json, keep .env
 #
 # Pre-requisites (one-time setup, see README): WSL (if Windows), Claude Code,
-# Archon CLI, this repo cloned to ~/kadence-skill/mega-kadence-skill.
+# Archon CLI, this repo cloned to ~/kadence-skill/store-drop-skill.
 
 set -euo pipefail
 cd "$(dirname "$0")"

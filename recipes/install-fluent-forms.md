@@ -28,7 +28,7 @@ None. The endpoint takes a hard-coded slug.
 ### Step 1: Call the bridge
 
 ```bash
-source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
 bridge_check_env || exit 1
 
 RESPONSE=$(bridge_post "/plugins/install-and-activate" '{"slug":"fluentform"}')

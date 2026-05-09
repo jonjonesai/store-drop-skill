@@ -7,9 +7,9 @@ You are creating ONE page: the homepage. Do not touch any other page.
 ## Setup
 
 ```bash
-source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
-source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
+source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
 bridge_check_env || exit 1
 ```
 

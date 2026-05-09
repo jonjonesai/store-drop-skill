@@ -1,6 +1,6 @@
 # DEVLOG
 
-Chronological history of significant changes to the Mega Kadence Skill.
+Chronological history of significant changes to the Store Drop Skill.
 
 ---
 
@@ -102,7 +102,7 @@ If a future bug is reported during/after Shawn's shoot: read this Session 6 entr
 
 ### What happened on the dry-run
 
-- Cloned skill repo to `~/kadence-skill/mega-kadence-skill/` on the second-brain VPS (Hetzner, user `jon`). Hardcoded path matched, lib sourcing worked.
+- Cloned skill repo to `~/kadence-skill/store-drop-skill/` on the second-brain VPS (Hetzner, user `jon`). Hardcoded path matched, lib sourcing worked.
 - Installed Archon CLI v0.3.10 user-local at `~/.local/bin/archon` (`INSTALL_DIR=~/.local/bin curl -fsSL https://archon.diy/install | bash`). No sudo needed.
 - First `./deploy.sh` failed at `apply-theme` node with: *"Claude Code not found. Archon requires the Claude Code executable to be reachable at a configured path."*
 - Root cause: this VPS has `claude` at `/usr/bin/claude` (system install), not the install.sh-default `~/.local/bin/claude`. The OAuth wrapper unsets `CLAUDE_CODE_EXECPATH`, which Archon falls back from. **Not a skill bug — environmental.** A fresh-WSL student following the README's `curl claude.ai/install.sh` puts `claude` at `~/.local/bin/claude`, where Archon finds it natively.
@@ -261,7 +261,7 @@ README.md                                          # Full student-grade rewrite
 
 ### Open items
 
-- Repo path is hardcoded to `~/kadence-skill/mega-kadence-skill/` in bash node sources. Future cleanup: use `ARCHON_PROJECT_ROOT` or wrapper-set env.
+- Repo path is hardcoded to `~/kadence-skill/store-drop-skill/` in bash node sources. Future cleanup: use `ARCHON_PROJECT_ROOT` or wrapper-set env.
 - `apply-theme-config.md` could be further decomposed for symmetry.
 - `set-front-page-and-report.md` could be replaced with bash (keeping AI for the summary printing is the only reason to keep it AI).
 
@@ -269,7 +269,7 @@ README.md                                          # Full student-grade rewrite
 
 ## Session 3b — 2026-05-02 (summarized from SESSION-4-MEMO.md)
 
-Mega Kadence Skill v1.0 + Mega Kadence Bridge v1.0.3 shipped. Archon workflow installed and partially working — preflight, intake, apply-theme, check-palette, check-dark-css, create-products, check-products all passed in one run. Hung on `create-pages` node (Claude session spawning issue, not yet root-caused).
+Store Drop Skill v1.0 + Mega Kadence Bridge v1.0.3 shipped. Archon workflow installed and partially working — preflight, intake, apply-theme, check-palette, check-dark-css, create-products, check-products all passed in one run. Hung on `create-pages` node (Claude session spawning issue, not yet root-caused).
 
 Cold Claude reproducibility tests:
 - Light mode: 3 successful deployments

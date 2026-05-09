@@ -21,7 +21,7 @@ nodes:
   - id: preflight
     bash: |
       # Source credentials from home directory (Archon strips repo .env files)
-      ENV_FILE="$HOME/kadence-skill/mega-kadence-skill/.env"
+      ENV_FILE="$HOME/kadence-skill/store-drop-skill/.env"
       [ -f "$ENV_FILE" ] && source "$ENV_FILE" || true
 
       # Also export to a location AI nodes can read
@@ -71,7 +71,7 @@ nodes:
   - id: ensure-fluent-forms
     depends_on: [preflight]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
       bridge_check_env || exit 1
 
       RESPONSE=$(bridge_post "/plugins/install-and-activate" '{"slug":"fluentform"}')
@@ -105,7 +105,7 @@ nodes:
       # values, then copy into both candidate ARTIFACTS_DIRs (workflow's
       # primary + /tmp/archon-artifacts fallback) so AI sessions and bash
       # nodes both find it regardless of which dir they resolve.
-      INTAKE_SRC="$HOME/kadence-skill/mega-kadence-skill/intake.json"
+      INTAKE_SRC="$HOME/kadence-skill/store-drop-skill/intake.json"
       if [ ! -f "$INTAKE_SRC" ]; then
         echo "FAIL: $INTAKE_SRC not found."
         echo "  Run from the repo root:"
@@ -166,7 +166,7 @@ nodes:
   - id: check-palette
     depends_on: [apply-theme]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
+      source "$HOME/kadence-skill/store-drop-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
       RESULT=$(curl -s "${BRIDGE_URL}/palette" -u "${BRIDGE_USER}:${BRIDGE_PASS}")
       HAS_PALETTE=$(echo "$RESULT" | python3 -c "import sys,json;p=json.load(sys.stdin).get('palette');print('yes' if p else 'no')" 2>/dev/null)
       [ "$HAS_PALETTE" = "yes" ] && echo "PASS: palette set" || { echo "FAIL: palette not set"; exit 1; }
@@ -178,9 +178,9 @@ nodes:
   - id: check-tagline
     depends_on: [check-palette]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
       bridge_check_env || exit 1
-      BRAND=$(python3 -c "import json;print(json.load(open('$HOME/kadence-skill/mega-kadence-skill/intake.json')).get('brand_name',''))")
+      BRAND=$(python3 -c "import json;print(json.load(open('$HOME/kadence-skill/store-drop-skill/intake.json')).get('brand_name',''))")
       TAGLINE=$(curl -s -u "${BRIDGE_USER}:${BRIDGE_PASS}" "${BRIDGE_URL}/option/blogdescription" | python3 -c "import sys,json;print(json.load(sys.stdin).get('value',''))" 2>/dev/null)
       if [ -z "$TAGLINE" ]; then
         echo "FAIL: blogdescription is empty — apply-theme-config must POST a tagline"
@@ -208,7 +208,7 @@ nodes:
   - id: enforce-content-style
     depends_on: [check-tagline]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
       bridge_check_env || exit 1
       bridge_post_theme_mod page_content_style "unboxed" >/dev/null
       bridge_post_theme_mod page_vertical_padding "hide" >/dev/null
@@ -226,7 +226,7 @@ nodes:
   - id: check-content-style
     depends_on: [enforce-content-style]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
       bridge_check_env || exit 1
       PCS=$(bridge_get_theme_mod page_content_style)
       PVP=$(bridge_get_theme_mod page_vertical_padding)
@@ -254,7 +254,7 @@ nodes:
   - id: check-products
     depends_on: [create-products]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
+      source "$HOME/kadence-skill/store-drop-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
       TOTAL=$(curl -s "${BRIDGE_URL}/woo/products" -u "${BRIDGE_USER}:${BRIDGE_PASS}" | python3 -c "import sys,json;print(json.load(sys.stdin).get('total',0))" 2>/dev/null)
       [ "$TOTAL" -ge 4 ] && echo "PASS: ${TOTAL} products" || { echo "FAIL: only ${TOTAL} products (need 4+)"; exit 1; }
     timeout: 10000
@@ -276,8 +276,8 @@ nodes:
   - id: check-homepage
     depends_on: [create-homepage]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
       bridge_check_env || exit 1
       # Hit the slug URL (/home/) — set-front-page hasn't run yet, so /
       # is still the blog index until Phase 6 finalize.
@@ -299,9 +299,9 @@ nodes:
   - id: check-about
     depends_on: [create-about]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
       bridge_check_env || exit 1
       STATUS="$(bridge_render_status /about/)"
       [ "$STATUS" = "200" ] || { echo "FAIL: about render returned $STATUS"; exit 1; }
@@ -321,8 +321,8 @@ nodes:
   - id: check-contact
     depends_on: [create-contact]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
       bridge_check_env || exit 1
       STATUS="$(bridge_render_status /contact/)"
       [ "$STATUS" = "200" ] || { echo "FAIL: contact render returned $STATUS"; exit 1; }
@@ -347,8 +347,8 @@ nodes:
   - id: check-legal-pages
     depends_on: [create-legal-pages]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
       bridge_check_env || exit 1
       FAIL=0
       for P in /privacy-policy/ /terms-of-service/ /returns-and-refunds/; do
@@ -367,8 +367,8 @@ nodes:
   - id: normalize-blocks
     depends_on: [check-legal-pages]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
       bridge_check_env || exit 1
       FAIL=0
       for SLUG in home about contact; do
@@ -388,8 +388,8 @@ nodes:
   - id: check-no-block-warnings
     depends_on: [normalize-blocks]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
       bridge_check_env || exit 1
       WP_BASE="$(echo "$BRIDGE_URL" | sed 's|/mega-kadence-bridge/v1|/wp/v2|')"
       FAIL=0
@@ -411,7 +411,7 @@ nodes:
   - id: merge-page-ids
     depends_on: [check-legal-pages]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
       pages_merge
     timeout: 10000
 
@@ -426,9 +426,9 @@ nodes:
   - id: ensure-primary-menu
     depends_on: [check-no-block-warnings, merge-page-ids]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       ID="$(chrome_ensure_menu "Primary Navigation" about contact shop)"
       [ -n "$ID" ] && echo "PASS: primary menu id=$ID" || { echo "FAIL: primary menu not created"; exit 1; }
@@ -437,9 +437,9 @@ nodes:
   - id: ensure-footer-menu
     depends_on: [ensure-primary-menu]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       ID="$(chrome_ensure_menu "Footer Legal" privacy-policy returns-and-refunds terms-of-service)"
       [ -n "$ID" ] && echo "PASS: footer menu id=$ID" || { echo "FAIL: footer menu not created"; exit 1; }
@@ -448,8 +448,8 @@ nodes:
   - id: assign-menu-locations
     depends_on: [ensure-footer-menu]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       P="$(chrome_get_menu_id "Primary Navigation")"
       F="$(chrome_get_menu_id "Footer Legal")"
@@ -462,8 +462,8 @@ nodes:
   - id: check-menus
     depends_on: [assign-menu-locations]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
       bridge_check_env || exit 1
       LOC="$(bridge_get_theme_mod nav_menu_locations)"
       # bridge_get_theme_mod returns compact-ish JSON with optional whitespace
@@ -476,9 +476,9 @@ nodes:
   - id: upload-logo
     depends_on: [check-menus]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       LOGO="$(intake_get logo)"
       mkdir -p "${ARTIFACTS_DIR:-/tmp/archon-artifacts}"
@@ -496,8 +496,8 @@ nodes:
   - id: set-logo-config
     depends_on: [upload-logo]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       LOGO_FILE="${ARTIFACTS_DIR:-/tmp/archon-artifacts}/logo.json"
       ID="$(python3 -c "import json,sys;print(json.load(open('$LOGO_FILE')).get('id','') or '')" 2>/dev/null)"
@@ -509,8 +509,8 @@ nodes:
   - id: check-logo-rendered
     depends_on: [set-logo-config]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
       bridge_check_env || exit 1
       HTML="$(bridge_render /)"
       assert_grep "logo or site-title rendered" 'custom-logo|site-title|site-branding' "$HTML" || exit 1
@@ -520,8 +520,8 @@ nodes:
   - id: configure-header-builder
     depends_on: [check-logo-rendered]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       chrome_configure_header_builder
       echo "PASS: header builder slots written"
@@ -530,8 +530,8 @@ nodes:
   - id: configure-sticky-transparent
     depends_on: [configure-header-builder]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       chrome_configure_sticky_transparent
       echo "PASS: sticky + transparent settings written"
@@ -540,9 +540,9 @@ nodes:
   - id: set-header-bg
     depends_on: [configure-sticky-transparent]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       chrome_set_header_bg "$MODE"
@@ -553,9 +553,9 @@ nodes:
   - id: check-header-config
     depends_on: [set-header-bg]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
       bridge_check_env || exit 1
       DESK="$(bridge_get_theme_mod header_desktop_items)"
       MOB="$(bridge_get_theme_mod header_mobile_items)"
@@ -576,9 +576,9 @@ nodes:
   - id: configure-footer-builder
     depends_on: [check-header-config]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       BRAND="$(intake_brand)"
       TAGLINE="$(intake_get tagline)"
@@ -589,9 +589,9 @@ nodes:
   - id: set-footer-bg
     depends_on: [configure-footer-builder]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       chrome_set_footer_bg "$MODE"
@@ -602,9 +602,9 @@ nodes:
   - id: check-footer-config
     depends_on: [set-footer-bg]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
       bridge_check_env || exit 1
       ITEMS="$(bridge_get_theme_mod footer_items)"
       BG="$(bridge_get_theme_mod footer_wrap_background)"
@@ -622,9 +622,9 @@ nodes:
   - id: set-per-page-transparent
     depends_on: [check-footer-config]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/chrome.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       chrome_set_per_page_transparent
       echo "PASS: _kad_post_transparent enabled on home/about/contact"
@@ -633,8 +633,8 @@ nodes:
   - id: check-per-page-transparent
     depends_on: [set-per-page-transparent]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/pages.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
       bridge_check_env || exit 1
       FAIL=0
       for SLUG in home about contact; do
@@ -681,9 +681,9 @@ nodes:
   - id: apply-dark-bg-mods
     depends_on: [chrome-ready]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/dark-mode-css.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/dark-mode-css.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       apply_dark_bg_mods "$MODE"
@@ -693,9 +693,9 @@ nodes:
   - id: inject-mode-css
     depends_on: [apply-dark-bg-mods]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/dark-mode-css.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/dark-mode-css.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       inject_mode_css "$MODE"
@@ -705,9 +705,9 @@ nodes:
   - id: check-body-text-color
     depends_on: [inject-mode-css]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       if [ "$MODE" != "dark" ]; then
@@ -722,9 +722,9 @@ nodes:
   - id: check-logo-color
     depends_on: [inject-mode-css]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       if [ "$MODE" != "dark" ]; then
@@ -739,9 +739,9 @@ nodes:
   - id: check-hero-padding
     depends_on: [inject-mode-css]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       if [ "$MODE" != "dark" ]; then
@@ -756,9 +756,9 @@ nodes:
   - id: check-drawer-colors
     depends_on: [inject-mode-css]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/assert.sh"
-      source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/intake.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/assert.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
       bridge_check_env || exit 1
       MODE="$(intake_mode)"
       HTML="$(bridge_render /)"
@@ -796,7 +796,7 @@ nodes:
   - id: final-check
     depends_on: [finalize]
     bash: |
-      source "$HOME/kadence-skill/mega-kadence-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
+      source "$HOME/kadence-skill/store-drop-skill/.env" 2>/dev/null || source /tmp/archon-bridge/.env 2>/dev/null || true
       SITE=$(echo $BRIDGE_URL | sed 's|/wp-json.*||')
       AUTH="${BRIDGE_USER}:${BRIDGE_PASS}"
       PASS=0; FAIL=0

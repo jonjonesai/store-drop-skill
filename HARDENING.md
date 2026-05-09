@@ -1,4 +1,4 @@
-# Mega Kadence Skill — Hardening Plan
+# Store Drop Skill — Hardening Plan
 
 > Goal: every user on every supported machine gets a successful Store Drop on the first run, with no manual debug, no version pinning, no dev-machine workarounds. Failures are loud, recoverable, and never silent. This document tracks the specific bugs we've hit and the structural changes that prevent the whole class.
 

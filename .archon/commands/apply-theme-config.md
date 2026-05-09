@@ -1,6 +1,6 @@
 # Apply Theme Configuration
 
-**Credentials:** Read bridge credentials from `~/kadence-skill/mega-kadence-skill/.env` (or `$ARTIFACTS_DIR/.env`). The file contains BRIDGE_URL, BRIDGE_USER, BRIDGE_PASS, BRIDGE_SITE. Use these for all API calls.
+**Credentials:** Read bridge credentials from `~/kadence-skill/store-drop-skill/.env` (or `$ARTIFACTS_DIR/.env`). The file contains BRIDGE_URL, BRIDGE_USER, BRIDGE_PASS, BRIDGE_SITE. Use these for all API calls.
 
 Read the intake answers from `$ARTIFACTS_DIR/intake.json`.
 

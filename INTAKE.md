@@ -10,8 +10,8 @@ Students paste the setup block below into Claude on Day 1. Claude reads it, asks
 I'm setting up my MEGA store. Please ask me the 6 setup questions
 one at a time, then build everything when you have my answers.
 
-Load the Mega Kadence Skill from:
-https://raw.githubusercontent.com/jonjonesai/mega-kadence-skill/main/SKILL.md
+Load the Store Drop Skill from:
+https://raw.githubusercontent.com/jonjonesai/store-drop-skill/main/SKILL.md
 
 My .env file is in this project folder with my bridge credentials.
 ```

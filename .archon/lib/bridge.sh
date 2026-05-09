@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Shared bridge helpers for Archon bash nodes.
 # Source from any bash node:
-#   source "$HOME/kadence-skill/mega-kadence-skill/.archon/lib/bridge.sh"
+#   source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
 
 _bridge_load_env() {
   local candidates=(
-    "$HOME/kadence-skill/mega-kadence-skill/.env"
+    "$HOME/kadence-skill/store-drop-skill/.env"
     "/tmp/archon-bridge/.env"
     "${ARCHON_PROJECT_ROOT:-}/.env"
   )
