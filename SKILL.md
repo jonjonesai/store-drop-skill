@@ -165,6 +165,7 @@ Full endpoint documentation: `references/mkb-api-reference.md`
 | Set Fonts | `recipes/set-fonts-by-tone.md` | 10 tone-based font pairings |
 | Build Nav Menus | `recipes/build-nav-menus.md` | Primary + footer menus, header/footer layout |
 | Verify Deployment | `recipes/verify-deployment.md` | Render-and-grep verification loop |
+| Disable Thumbnail Generation | `recipes/disable-thumbnail-generation.md` | mu-plugin to stop WP/Kadence/WC from spawning 6+ resized files per upload |
 
 ### Boilerplate
 
