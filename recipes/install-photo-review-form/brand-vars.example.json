@@ -1,0 +1,30 @@
+{
+  "_comment": "Per-brand variable file consumed by the template renderer. Copy this to brand-vars.json and edit before running the install. Values shown are the live TaiwanMerch.co values for reference.",
+
+  "BRAND_SHORT":         "TaiwanMerch",
+  "BRAND_PREFIX":        "twm",
+  "BRAND_PREFIX_UPPER":  "TWM",
+  "BRAND_DOMAIN":        "taiwanmerch.co",
+  "BRAND_FROM_EMAIL":    "hello@taiwanmerch.co",
+
+  "BRAND_PRIMARY_HEX":   "#215387",
+  "BRAND_HEADING_HEX":   "#222c88",
+  "BRAND_ACCENT_HEX":    "#ff181d",
+  "BRAND_HOVER_HEX":     "#ff181d",
+  "BRAND_TABLE_BG_HEX":  "#fef3e7",
+  "BRAND_FONT_CSS":      "'Righteous', cursive",
+
+  "BRAND_LOGO_URL":      "https://taiwanmerch.co/wp-content/uploads/2025/12/taiwan-merch-logo.png",
+  "BRAND_ADDRESS":       "680 S Cache Street, Suite 100-8790, Jackson, WY 83001",
+
+  "FF_FORM_ID":          "5",
+  "WPSR_TEMPLATE_ID":    "4861",
+
+  "REVIEW_DELAY_DAYS":   "14",
+  "REVIEW_SUBJECT":      "How are you loving your Taiwan Merch? We'd love to hear! ⭐",
+  "REVIEW_GREETING":     "Hey {first_name}! 🇹🇼",
+  "REVIEW_BODY_P1":      "It's been a couple of weeks since your Taiwan Merch arrived, and we hope you're loving it! Your support means the world to us.",
+  "REVIEW_BODY_P2":      "Would you mind taking a moment to share your experience? Your review helps other Taiwan fans discover products they'll love too!",
+  "REVIEW_BODY_P3":      "It only takes a minute, and we truly appreciate it! 🙏",
+  "REVIEW_SIGNATURE":    "The Taiwan Merch Team"
+}
