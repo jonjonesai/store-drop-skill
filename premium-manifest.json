@@ -1,0 +1,43 @@
+{
+  "schema": "mkb-artifact-manifest/v1",
+  "bucket": "mega-store-artifacts",
+  "note": "Premium artifacts for store-drop. Binaries in private R2; this manifest is the sha256 trust list. store-drop mints a presigned URL per object_key and passes {url, sha256} to MKB /plugins|themes/install-from-url.",
+  "generated": "2026-06-17",
+  "artifacts": [
+    {
+      "name": "Kadence",
+      "type": "theme",
+      "stylesheet": "kadence",
+      "version": "1.5.0",
+      "object_key": "themes/kadence-1.5.0.zip",
+      "sha256": "80c70eda9ec68b0300343b59315027efdfb163bc5cbce19a5c93c71ab30ea82f"
+    },
+    {
+      "name": "Kadence Blocks Pro",
+      "type": "plugin",
+      "slug": "kadence-blocks-pro",
+      "plugin_file": "kadence-blocks-pro/kadence-blocks-pro.php",
+      "version": "2.8.16",
+      "object_key": "plugins/kadence-blocks-pro-2.8.16.zip",
+      "sha256": "e6a2decb9d67120d502be7427744819a61e2f8ce7c09cc531bbfee9de2ffde58"
+    },
+    {
+      "name": "Fluent Forms Pro",
+      "type": "plugin",
+      "slug": "fluentformpro",
+      "plugin_file": "fluentformpro/fluentformpro.php",
+      "version": "6.2.4",
+      "object_key": "plugins/fluentform-pro-6.2.4.zip",
+      "sha256": "0d8f2fc58aa037158e5cca3df86fb51cb2a2d40e0893bf6e2b2e541a25e54983"
+    },
+    {
+      "name": "FluentCRM Pro",
+      "type": "plugin",
+      "slug": "fluentcampaign-pro",
+      "plugin_file": "fluentcampaign-pro/fluentcampaign-pro.php",
+      "version": "3.1.5",
+      "object_key": "plugins/fluentcrm-pro-3.1.5.zip",
+      "sha256": "cea4d3ae1ccaed6e123b0b18644f0c7f0aa42a37bb9fb51a111351bc6dd73607"
+    }
+  ]
+}
