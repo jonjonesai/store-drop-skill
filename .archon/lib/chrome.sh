@@ -230,20 +230,25 @@ print(json.dumps({'mods':{
   bridge_post "/theme-mods/batch" "$payload" >/dev/null
 }
 
-# Light: dark footer (palette3). Dark: surface footer (palette7).
+# Light: dark footer (palette3) with light text. Dark: light footer (palette7) with dark text.
+# CRITICAL: the background AND the text/link colors must be set together, or the
+# footer inherits the default text color and renders illegibly (e.g. dark-on-dark).
 chrome_set_footer_bg() {
   local mode="${1:-light}"
-  local color
+  local bg text linkhover
   if [ "$mode" = "dark" ]; then
-    color='palette7'
+    bg='palette7'; text='palette3'; linkhover='palette1'
   else
-    color='palette3'
+    bg='palette3'; text='palette9'; linkhover='palette1'
   fi
   local payload
   payload=$(python3 -c "
 import json
 print(json.dumps({'mods':{
-  'footer_wrap_background': {'desktop':{'color':'$color'}}
+  'footer_wrap_background': {'desktop':{'color':'$bg'}},
+  'footer_html_color': {'color':'$text'},
+  'footer_link_color': {'color':'$text','hover':'$linkhover'},
+  'footer_navigation_colors': {'color':'$text','hover':'$linkhover'}
 }}))
 ")
   bridge_post "/theme-mods/batch" "$payload" >/dev/null

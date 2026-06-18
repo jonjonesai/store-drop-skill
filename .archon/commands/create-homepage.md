@@ -36,11 +36,14 @@ POST /pages/ensure  with  {"title":"<brand_name>","slug":"home","status":"publis
 
 Save the returned `id`.
 
-### 3. Force-publish + set required meta
+### 3. Force-publish + force-overwrite content + set required meta
+
+**CRITICAL: include `content` in this call.** `/pages/ensure` is slug-idempotent — if a "home" page already exists it returns that page **without overwriting its content**, so the homepage you generated in step 2 silently does not land. Re-sending `content` here force-overwrites the body on the resolved page ID, making this command safe to re-run and robust to a pre-existing home page.
 
 ```
 POST /posts/{id}  with  {
   "status":"publish",
+  "content":"<transformed-html>",
   "meta":{
     "_kad_post_title":"hide",
     "_kad_post_feature":"hide",
