@@ -252,6 +252,24 @@ print(json.dumps({'mods':{
 }}))
 ")
   bridge_post "/theme-mods/batch" "$payload" >/dev/null
+
+  # Kadence does NOT reliably honor footer_html_color on the footer HTML widget,
+  # so enforce legible footer text with CSS. Also brand the FluentForms submit
+  # button with the accent (palette1) so forms match the site's CTAs.
+  local css_payload
+  css_payload=$(python3 -c "
+import json
+text='$text'
+css = (
+  '.footer-html,.footer-html-inner,.footer-html p,.footer-html a{color:var(--global-'+text+')!important}'
+  '.fluentform .ff-btn-submit,.ff-btn-submit{background-color:var(--global-palette1)!important;'
+  'border-color:var(--global-palette1)!important;color:var(--global-palette9)!important}'
+  '.fluentform .ff-btn-submit:hover,.ff-btn-submit:hover{background-color:var(--global-palette2)!important;'
+  'border-color:var(--global-palette2)!important}'
+)
+print(json.dumps({'css':css,'append':True}))
+")
+  bridge_post "/css" "$css_payload" >/dev/null
 }
 
 # ---------- PER-PAGE TRANSPARENT META ----------
