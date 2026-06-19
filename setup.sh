@@ -20,15 +20,17 @@ say "Installing base tools (git, curl)..."
 sudo apt-get update -qq
 sudo apt-get install -y -qq git curl
 
-say "Installing Claude Code..."
-curl -fsSL https://claude.ai/install.sh | bash
-
-# Put Claude (and friends) on PATH permanently — silently, so the user
-# never sees a "command not found" or has to run anything by hand.
+# Put ~/.local/bin on PATH FIRST — both for this run and permanently in
+# .bashrc — so Claude's installer sees it's already there and never prints
+# its "command not found / run this PATH line" note. The user sees nothing.
+mkdir -p "$HOME/.local/bin"
 if ! grep -qs '.local/bin' "$HOME/.bashrc"; then
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 export PATH="$HOME/.local/bin:$PATH"
+
+say "Installing Claude Code..."
+curl -fsSL https://claude.ai/install.sh | bash
 
 say "Installing Archon..."
 curl -fsSL https://archon.diy/install | bash
