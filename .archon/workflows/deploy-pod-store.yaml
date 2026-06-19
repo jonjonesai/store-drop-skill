@@ -635,7 +635,7 @@ nodes:
       source "$HOME/kadence-skill/store-drop-skill/.archon/lib/chrome.sh"
       bridge_check_env || exit 1
       chrome_set_per_page_transparent
-      echo "PASS: _kad_post_transparent enabled on home/about/contact"
+      echo "PASS: _kad_post_transparent set to disable (solid header) on home/about/contact"
     timeout: 30000
 
   - id: check-per-page-transparent
@@ -654,10 +654,10 @@ nodes:
         # 'enable' or ['enable'] — accept both.
         VAL="$(bridge_get "/posts/${PID}" \
           | python3 -c 'import json,sys;m=json.load(sys.stdin).get("meta",{}).get("_kad_post_transparent","");print(m[0] if isinstance(m,list) and m else (m if not isinstance(m,list) else ""))' 2>/dev/null)"
-        if [ "$VAL" = "enable" ]; then
-          echo "PASS: $SLUG transparent=enable"
+        if [ "$VAL" = "disable" ]; then
+          echo "PASS: $SLUG transparent=disable (solid header)"
         else
-          echo "FAIL: $SLUG transparent='$VAL' (expected 'enable')"
+          echo "FAIL: $SLUG transparent='$VAL' (expected 'disable')"
           FAIL=1
         fi
       done
