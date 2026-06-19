@@ -280,7 +280,7 @@ chrome_set_per_page_transparent() {
     pid="$(pages_get_id "$slug")"
     [ -z "$pid" ] && { echo "WARN: no $slug artifact, skipping" >&2; continue; }
     bridge_post "/posts/${pid}" \
-      "$(python3 -c 'import json,sys;print(json.dumps({"meta":{"_kad_post_transparent":"enable"}}))')" \
+      "$(python3 -c 'import json,sys;print(json.dumps({"meta":{"_kad_post_transparent":"disable"}}))')" \
       >/dev/null
   done
 }

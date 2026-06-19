@@ -488,8 +488,16 @@ nodes:
         echo "PASS: no logo (text-only branding)"
       else
         ID="$(chrome_upload_logo "$LOGO")"
-        echo "{\"id\":\"$ID\",\"url\":\"$LOGO\"}" > "$LOGO_FILE"
-        [ -n "$ID" ] && echo "PASS: logo uploaded id=$ID" || { echo "FAIL: logo upload returned empty id"; exit 1; }
+        if [ -n "$ID" ]; then
+          echo "{\"id\":\"$ID\",\"url\":\"$LOGO\"}" > "$LOGO_FILE"
+          echo "PASS: logo uploaded id=$ID"
+        else
+          # Logo upload is NEVER fatal — a bad/mangled URL must not abort the
+          # header, footer, and set-front-page nodes downstream. Fall back to
+          # text-only branding and let the build finish.
+          echo '{"id":""}' > "$LOGO_FILE"
+          echo "WARN: logo upload returned empty id — falling back to text-only logo; build continues"
+        fi
       fi
     timeout: 60000
 

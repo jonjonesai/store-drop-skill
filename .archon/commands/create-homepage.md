@@ -49,7 +49,7 @@ POST /posts/{id}  with  {
     "_kad_post_feature":"hide",
     "_kad_post_vertical_padding":"disable",
     "_kad_post_layout":"fullwidth",
-    "_kad_post_transparent":"enable"
+    "_kad_post_transparent":"disable"
   }
 }
 ```
