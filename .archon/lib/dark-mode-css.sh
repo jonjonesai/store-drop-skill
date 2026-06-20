@@ -50,6 +50,15 @@ FOOTER_CSS='.site-footer-wrap, .site-bottom-footer-wrap, .site-middle-footer-wra
 FORM_CSS='.fluentform .ff-btn-submit, .ff-btn-submit { background-color: var(--global-palette1) !important; border-color: var(--global-palette1) !important; color: var(--global-palette9) !important; }
 .fluentform .ff-btn-submit:hover, .ff-btn-submit:hover { background-color: var(--global-palette2) !important; border-color: var(--global-palette2) !important; }'
 
+# ---------- Layout CSS — contain page-content rows to 1290 centered ----------
+# Full-width Kadence rows keep their edge-to-edge background but their CONTENT
+# must be capped at 1290 and centered. The maxWidth block attribute does this,
+# but the Claude-driven create-page nodes don't reliably preserve it, so we
+# enforce it deterministically here (inject_mode_css owns the CSS slot, runs
+# last). Only targets .wp-block-kadence-rowlayout (page content) — header/footer
+# use different wrappers and are unaffected.
+LAYOUT_CSS='.wp-block-kadence-rowlayout .kt-row-column-wrap { max-width: 1290px !important; margin-left: auto !important; margin-right: auto !important; }'
+
 # ---------- Drawer CSS — varies by mode ----------
 
 drawer_css_for_mode() {
@@ -78,20 +87,22 @@ EOF
 # ---------- Bundle builders ----------
 
 build_dark_css_bundle() {
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
     "$DARK_CSS_BODY_TEXT" \
     "$DARK_CSS_LOGO" \
     "$DARK_CSS_HERO_PADDING" \
     "$DARK_CSS_LINKS" \
     "$FOOTER_CSS" \
     "$FORM_CSS" \
+    "$LAYOUT_CSS" \
     "$(drawer_css_for_mode dark)"
 }
 
 build_light_css_bundle() {
-  printf '%s\n%s\n%s\n' \
+  printf '%s\n%s\n%s\n%s\n' \
     "$FOOTER_CSS" \
     "$FORM_CSS" \
+    "$LAYOUT_CSS" \
     "$(drawer_css_for_mode light)"
 }
 
