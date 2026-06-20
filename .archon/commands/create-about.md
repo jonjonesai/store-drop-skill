@@ -13,46 +13,50 @@ source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
 bridge_check_env || exit 1
 ```
 
-Read intake from `$ARTIFACTS_DIR/intake.json`. Read the golden template at `templates/about.html` — keep block structure as-is.
+Read intake from `$ARTIFACTS_DIR/intake.json`.
+
+> ⚠️ **NEVER inline page HTML into a JSON string yourself, and never POST `content` directly via curl.** Doing so corrupts every newline into the literal letter `n` (`\n` → `\\n` → wp_unslash → `n`), producing `>nn<` garbage across the page. Page content is written **only** by `pages_ensure_from_file`, which reads a file and encodes it correctly. Your job is to produce the substituted HTML *as a file*, nothing more.
 
 ## Steps
 
-### 1. Substitute copy
+### 1. Substitute copy → write content file (structure preserved byte-for-byte)
 
-Replace in the template:
-- `CuteMerch` → intake `brand_name`
-- Story copy → 3-paragraph story you generate from niche + brand_name (origin, mission, what makes you different)
-- Value descriptions (3 of them) → derive from niche
+Do the substitution with python `.replace()` on the template file so block structure (maxWidth, kbVersion, padding, real newlines) is preserved exactly — only the copy strings change. Generate the brand copy first, then run a single python step:
 
-**Every Kadence block must include `kbVersion:2` in attributes.** Otherwise the CSS engine drops the block.
-
-### 2. Create the page
-
+```bash
+python3 - <<'PY'
+brand = "BRAND_NAME_FROM_INTAKE"
+src = open("templates/about.html", encoding="utf-8").read()
+src = src.replace("CuteMerch", brand)
+# Replace the story paragraphs (origin/mission/difference) and the 3 value
+# descriptions with copy you generate from the niche, matching each exact
+# placeholder string in the template. Do NOT touch block attributes.
+open("/tmp/archon-artifacts/about-content.html", "w", encoding="utf-8").write(src)
+print("about-content.html written")
+PY
 ```
-POST /pages/ensure  with  {"title":"About","slug":"about","status":"publish","type":"page","content":"<transformed-html>"}
+
+If a `.replace()` target is not found it silently leaves the placeholder — acceptable, and far better than corrupting the page. Match the template strings exactly. Every Kadence block already carries `kbVersion:2` — leave it.
+
+### 2. Create + force-overwrite the page (deterministic write)
+
+```bash
+ID=$(pages_ensure_from_file about "About" /tmp/archon-artifacts/about-content.html)
+echo "about id=$ID"
 ```
 
-Save the returned `id`.
+This both creates the page and force-overwrites its body from the file with correct JSON encoding. Do NOT POST `content` any other way.
 
-### 3. Force-publish + meta
+### 3. Set required meta (no content here)
 
-```
-POST /posts/{id}  with  {
-  "status":"publish",
-  "meta":{
-    "_kad_post_title":"hide",
-    "_kad_post_feature":"hide",
-    "_kad_post_vertical_padding":"disable",
-    "_kad_post_layout":"fullwidth",
-    "_kad_post_transparent":"enable"
-  }
-}
+```bash
+bridge_post "/posts/$ID" '{"status":"publish","meta":{"_kad_post_title":"hide","_kad_post_feature":"hide","_kad_post_vertical_padding":"disable","_kad_post_layout":"fullwidth","_kad_post_transparent":"enable"}}' >/dev/null
 ```
 
 ### 4. Write artifact
 
 ```bash
-pages_write_one about <ID> /about/
+pages_write_one about "$ID" /about/
 ```
 
-Then print one line: `CREATED: about id=<ID>` and stop.
+Then print one line: `CREATED: about id=$ID` and stop.

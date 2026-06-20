@@ -32,6 +32,53 @@ pages_write_one() {
   fi
 }
 
+# pages_ensure_from_file <slug> <title> <content-file>  ->  echoes the page ID
+#
+# The ONLY correct way to write page content. Reads the file's exact bytes
+# (real newlines), JSON-encodes via python (correct escaping), and POSTs with
+# curl --data @file so the shell never touches the payload.
+#
+# WHY THIS EXISTS: hand-building the POST JSON in a Claude/shell step corrupts
+# every newline into the literal letter "n". The chain: a shell-authored body
+# carries `\n` (backslash-n) -> JSON-encodes to `\\n` -> bridge json_decode
+# yields `\n` -> WP wp_unslash() strips the backslash -> bare "n" in the DB.
+# Result: ">nn<" garbage scattered through the rendered page. Writing the HTML
+# to a file (real newlines) + python json.dump + curl --data @file removes
+# every escaping layer, so content is stored byte-for-byte.
+pages_ensure_from_file() {
+  local slug="$1" title="$2" file="$3"
+  [ -f "$file" ] || { echo "FAIL: content file not found: $file" >&2; return 1; }
+  local pf id resp
+  pf="$(mktemp)"
+  # 1) ensure the page exists (create or find by slug), with content
+  python3 - "$title" "$slug" "$file" > "$pf" <<'PY'
+import json, sys
+title, slug, fn = sys.argv[1], sys.argv[2], sys.argv[3]
+content = open(fn, encoding="utf-8").read()
+json.dump({"title": title, "slug": slug, "status": "publish",
+           "type": "page", "content": content}, sys.stdout)
+PY
+  resp="$(curl -s --max-time 30 -X POST "${BRIDGE_URL}/pages/ensure" \
+    -u "$BRIDGE_AUTH" -H "Content-Type: application/json" --data @"$pf")"
+  id="$(printf '%s' "$resp" \
+    | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('id') or d.get('page',{}).get('id',''))" 2>/dev/null)"
+  if [ -z "$id" ]; then
+    rm -f "$pf"; echo "FAIL: /pages/ensure returned no id: $resp" >&2; return 1
+  fi
+  # 2) force-overwrite the body on the resolved id — /pages/ensure is
+  #    slug-idempotent and will NOT overwrite a pre-existing page's content,
+  #    so a re-run against an existing slug would otherwise keep stale body.
+  python3 - "$file" > "$pf" <<'PY'
+import json, sys
+content = open(sys.argv[1], encoding="utf-8").read()
+json.dump({"status": "publish", "content": content}, sys.stdout)
+PY
+  curl -s --max-time 30 -X POST "${BRIDGE_URL}/posts/${id}" \
+    -u "$BRIDGE_AUTH" -H "Content-Type: application/json" --data @"$pf" >/dev/null
+  rm -f "$pf"
+  printf '%s' "$id"
+}
+
 # pages_merge  ->  writes pages.json (object keyed by slug) into BOTH dirs.
 # Reads page-*.json from BOTH dirs; primary wins on duplicate slugs.
 pages_merge() {
