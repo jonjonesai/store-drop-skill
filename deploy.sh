@@ -73,6 +73,32 @@ SITE_NAME="$(printf '%s' "$INFO" | python3 -c 'import json,sys;print(json.load(s
 ok "Bridge reachable — site: $SITE_NAME"
 
 # ============================================================
+# Step 1b — ensure the store stack is installed
+# ============================================================
+# deploy-pod-store assumes Kadence + WooCommerce + the Fluent stack are present.
+# On a fresh site they aren't, so install them now via install-stack.sh (which
+# reuses the .env we just wrote). If the stack is already there we skip it.
+# This is what makes deploy.sh a single command end-to-end.
+STACK_OK="$(printf '%s' "$INFO" | python3 -c '
+import json,sys
+try:
+    d=json.load(sys.stdin)
+    print("yes" if (bool(d.get("woocommerce_active")) and str(d.get("theme","")).lower().startswith("kadence")) else "no")
+except Exception:
+    print("no")' 2>/dev/null)"
+if [ "$STACK_OK" = "yes" ]; then
+  ok "Store stack already installed"
+else
+  echo
+  say "===== Installing store stack ====="
+  echo "Your site needs the Kadence theme + store plugins. Installing now (~2-3 min)…"
+  echo
+  [ -x ./install-stack.sh ] || fail "install-stack.sh not found or not executable."
+  ./install-stack.sh || fail "Stack install failed — see the output above, then re-run ./deploy.sh"
+  ok "Store stack installed"
+fi
+
+# ============================================================
 # Step 2 — intake (6 questions, interactive)
 # ============================================================
 

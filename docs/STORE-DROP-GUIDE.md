@@ -52,26 +52,14 @@ Open a **fresh terminal window**, run `claude`, and log in when prompted. That's
 
 ---
 
-## Step 3 — Install the store stack
-
-Your fresh WordPress doesn't have the theme and plugins a real store needs yet. One command installs them all onto your site through the bridge — the Kadence theme + Pro blocks, WooCommerce, Stripe, Printful, and the Fluent forms/CRM stack:
+## Step 3 — Drop the store (one command)
 
 ```bash
 cd ~/kadence-skill/store-drop-skill
-./install-stack.sh
-```
-
-It checks each install and retries automatically if a download hiccups, so let it run to “stack install complete.”
-
----
-
-## Step 4 — Drop the store
-
-```bash
 ./deploy.sh
 ```
 
-It asks two things:
+That's it — one command does everything. If your fresh site doesn't have the store stack yet (Kadence theme + Pro blocks, WooCommerce, Stripe, Printful, the Fluent forms/CRM stack), `deploy.sh` installs it for you first, then builds. It asks you two things:
 
 1. **Paste your bridge keys** (the block you copied in Step 1).
 2. **Answer six questions** about your brand:
@@ -86,7 +74,7 @@ Then it builds — about 15 minutes, fully automated. You'll watch it work throu
 
 ---
 
-## Step 5 — You have a store
+## Step 4 — You have a store
 
 When it prints **“DEPLOYMENT SUCCESSFUL,”** open your domain. You'll have:
 
@@ -102,7 +90,7 @@ When it prints **“DEPLOYMENT SUCCESSFUL,”** open your domain. You'll have:
 
 ---
 
-## Step 6 — Make it yours (the ecosystem from here)
+## Step 5 — Make it yours (the ecosystem from here)
 
 The store is the launchpad, not the finish line:
 
