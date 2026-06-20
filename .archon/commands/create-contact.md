@@ -23,15 +23,18 @@ Do the substitution with python `.replace()` on the template file so block struc
 
 ```bash
 python3 - <<'PY'
-brand = "BRAND_NAME_FROM_INTAKE"
-email = "info@DOMAIN"          # derive DOMAIN from the bridge site URL; or use intake email
+repl = {
+  "{{BRAND}}": "BRAND_NAME_FROM_INTAKE",
+  "{{EMAIL}}": "info@DOMAIN",   # derive DOMAIN from the bridge site URL, or use intake email
+}
 src = open("templates/contact.html", encoding="utf-8").read()
-src = src.replace("CuteMerch", brand)
-src = src.replace("hello@cutemerch.love", email)
+for k, v in repl.items():
+    src = src.replace(k, v)
 # Keep [fluentform id="1"] unless GET /wp-json/fluentform/v1/forms shows a
-# different contact-form ID — then .replace('id="1"','id="<that>"').
+# different contact-form ID — then also .replace('id="1"','id="<that>"').
+assert "{{" not in src, "unfilled sentinel remains: " + src[src.index("{{"):src.index("{{")+40]
 open("/tmp/archon-artifacts/contact-content.html", "w", encoding="utf-8").write(src)
-print("contact-content.html written")
+print("contact-content.html written, all sentinels filled")
 PY
 ```
 

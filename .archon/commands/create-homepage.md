@@ -19,29 +19,31 @@ Read intake from `$ARTIFACTS_DIR/intake.json`.
 
 ## Steps
 
-### 1. Substitute copy → write content file (structure preserved byte-for-byte)
+### 1. Fill the sentinel tokens → write content file (structure preserved byte-for-byte)
 
-Do the substitution with python `.replace()` on the template file so block structure (maxWidth, kbVersion, padding, real newlines) is preserved exactly — only the copy strings change. Generate the brand copy first, then run a single python step with those strings:
+The template uses `{{SENTINEL}}` tokens for the brand-critical copy. Fill them with python `.replace()` so block structure (maxWidth, kbVersion, padding, real newlines) is preserved exactly. Generate copy from the niche in the BRAND VOICE, then run ONE python step. **Every `{{...}}` must be filled** — any left in the file HALTS the build (pages_ensure_from_file refuses content containing `{{`), so nothing half-substituted can ship.
 
 ```bash
 python3 - <<'PY'
-brand       = "BRAND_NAME_FROM_INTAKE"
-headline    = "HEADLINE you generate from niche, <= 7 words"
-subheadline = "SUBHEADLINE you generate from niche, <= 18 words"
-story       = "Two-sentence brand story from niche + brand_name."
+repl = {
+  "{{HOME_HEADLINE}}": "hero H1 from niche, <= 7 words, brand voice",
+  "{{HOME_SUBHEAD}}":  "hero subhead from niche, <= 18 words",
+  "{{HOME_STORY_1}}":  "Our Story paragraph 1 — origin, brand voice",
+  "{{HOME_STORY_2}}":  "Our Story paragraph 2 — craft / what makes it different",
+  "{{BRAND}}":         "BRAND_NAME_FROM_INTAKE",
+}
 src = open("templates/homepage.html", encoding="utf-8").read()
-src = src.replace("CuteMerch", brand)
-src = src.replace("Adorable Designs, Everyday Products", headline)
-src = src.replace("Cute animal illustrations on tees, hoodies, mugs, and more. Quality products that make you smile.", subheadline)
-# Replace the "Our Story" body paragraph with `story` (match the exact
-# placeholder paragraph text in the template). Keep [fluentform id="2"] unless
-# GET /wp-json/fluentform/v1/forms shows a different subscription-form ID.
+for k, v in repl.items():
+    src = src.replace(k, v)
+# Keep [fluentform id="2"] unless GET /wp-json/fluentform/v1/forms shows a
+# different subscription-form ID — then also .replace('id="2"','id="<that>"').
+assert "{{" not in src, "unfilled sentinel remains: " + src[src.index("{{"):src.index("{{")+40]
 open("/tmp/archon-artifacts/home-content.html", "w", encoding="utf-8").write(src)
-print("home-content.html written")
+print("home-content.html written, all sentinels filled")
 PY
 ```
 
-If a `.replace()` target string is not found it silently leaves the placeholder — that is acceptable (placeholder copy, intact structure) and far better than corrupting the page. Match the template strings exactly. **Do NOT modify block attributes; only change copy.** Every Kadence block already carries `kbVersion:2` in the template — leave it.
+The generic trust badges and section headings carry no token and stay as-is — that's fine, they're brand-neutral. **Do NOT modify block attributes; only fill tokens.** The `assert "{{" not in src` is a safety net — if it trips, fix the dict and re-run.
 
 ### 2. Create + force-overwrite the page (deterministic write)
 

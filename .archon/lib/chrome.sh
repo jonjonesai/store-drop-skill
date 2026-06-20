@@ -230,17 +230,29 @@ print(json.dumps({'mods':{
   bridge_post "/theme-mods/batch" "$payload" >/dev/null
 }
 
-# Footer is ALWAYS a dark surface (palette3) with light text (palette9),
-# regardless of mode — matches FOOTER_CSS in dark-mode-css.sh. We only set the
-# theme_mods here; the text/link/footer + form-button colors are enforced by CSS
-# in inject_mode_css, which replaces the custom CSS slot LAST (so any /css we
-# wrote here would be clobbered — don't write it here).
+# Footer is a dark surface with white (palette9) text in BOTH modes — but which
+# palette slot is "a dark surface" DIFFERS by mode, because the generated
+# palette inverts:
+#   light mode: palette3 is dark  (#1f2... ), palette7 is a light surface
+#   dark  mode: palette3 is WHITE (#FFFFFF!), palette7 is #1A1A1A dark surface
+# So a hard-coded palette3 footer is a dark bar in light mode but a WHITE bar
+# (white-on-white with palette9 text — invisible) in dark mode. Pick the slot
+# that is actually dark for the active mode. This matches check-footer-config,
+# which asserts palette7 in dark / palette3 in light. Text/link colors are
+# palette9 (white) — legible on either dark surface — and are re-enforced by
+# FOOTER_CSS in inject_mode_css (which owns the CSS slot, written LAST).
 chrome_set_footer_bg() {
+  local mode="${1:-light}" bg
+  if [ "$mode" = "dark" ]; then
+    bg='palette7'   # #1A1A1A — distinct from palette8 (#0A0A0A) page bg
+  else
+    bg='palette3'   # dark surface in the light palette
+  fi
   local payload
   payload=$(python3 -c "
 import json
 print(json.dumps({'mods':{
-  'footer_wrap_background': {'desktop':{'color':'palette3'}},
+  'footer_wrap_background': {'desktop':{'color':'$bg'}},
   'footer_html_color': {'color':'palette9'},
   'footer_link_color': {'color':'palette9','hover':'palette1'},
   'footer_navigation_colors': {'color':'palette9','hover':'palette1'}

@@ -19,24 +19,35 @@ Read intake from `$ARTIFACTS_DIR/intake.json`.
 
 ## Steps
 
-### 1. Substitute copy → write content file (structure preserved byte-for-byte)
+### 1. Fill the sentinel tokens → write content file (structure preserved byte-for-byte)
 
-Do the substitution with python `.replace()` on the template file so block structure (maxWidth, kbVersion, padding, real newlines) is preserved exactly — only the copy strings change. Generate the brand copy first, then run a single python step:
+The template uses `{{SENTINEL}}` tokens for every piece of brand copy. Fill them with python `.replace()` so block structure (maxWidth, kbVersion, padding, real newlines) is preserved exactly. Generate copy from the niche, then run ONE python step. **You must replace every token below** — any `{{...}}` left in the file will HALT the build (pages_ensure_from_file refuses content containing `{{`), so nothing half-substituted can ever ship.
 
 ```bash
 python3 - <<'PY'
-brand = "BRAND_NAME_FROM_INTAKE"
+repl = {
+  "{{BRAND}}":            "BRAND_NAME_FROM_INTAKE",
+  "{{ABOUT_SUB}}":        "one-line hero subhead from the niche",
+  "{{ABOUT_STORY_1}}":    "origin paragraph — why this brand exists, in the brand voice",
+  "{{ABOUT_STORY_2}}":    "second paragraph — mission / what makes it different",
+  "{{ABOUT_VAL1_TITLE}}": "value 1 title (2-3 words)",
+  "{{ABOUT_VAL1_DESC}}":  "value 1 description (1-2 sentences from the niche)",
+  "{{ABOUT_VAL2_TITLE}}": "value 2 title",
+  "{{ABOUT_VAL2_DESC}}":  "value 2 description",
+  "{{ABOUT_VAL3_TITLE}}": "value 3 title",
+  "{{ABOUT_VAL3_DESC}}":  "value 3 description",
+  "{{ABOUT_CTA_HEADING}}":"closing CTA heading, in the brand voice",
+}
 src = open("templates/about.html", encoding="utf-8").read()
-src = src.replace("CuteMerch", brand)
-# Replace the story paragraphs (origin/mission/difference) and the 3 value
-# descriptions with copy you generate from the niche, matching each exact
-# placeholder string in the template. Do NOT touch block attributes.
+for k, v in repl.items():
+    src = src.replace(k, v)
+assert "{{" not in src, "unfilled sentinel remains: " + src[src.index("{{"):src.index("{{")+40]
 open("/tmp/archon-artifacts/about-content.html", "w", encoding="utf-8").write(src)
-print("about-content.html written")
+print("about-content.html written, all sentinels filled")
 PY
 ```
 
-If a `.replace()` target is not found it silently leaves the placeholder — acceptable, and far better than corrupting the page. Match the template strings exactly. Every Kadence block already carries `kbVersion:2` — leave it.
+Write copy in the BRAND VOICE from the intake niche — never generic. Do NOT touch block attributes; only fill the tokens. The `assert "{{" not in src` line is a safety net — if it trips, you missed a token; fix the dict and re-run.
 
 ### 2. Create + force-overwrite the page (deterministic write)
 

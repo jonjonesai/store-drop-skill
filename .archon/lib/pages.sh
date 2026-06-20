@@ -48,6 +48,14 @@ pages_write_one() {
 pages_ensure_from_file() {
   local slug="$1" title="$2" file="$3"
   [ -f "$file" ] || { echo "FAIL: content file not found: $file" >&2; return 1; }
+  # Guard: never publish content with an unfilled {{SENTINEL}} token. The
+  # create-page commands fill brand copy by replacing {{...}} tokens in the
+  # template; a missed token would otherwise ship a literal "{{ABOUT_STORY_1}}"
+  # (or, before sentinels, leftover CuteMerch prose). Halt loud instead.
+  if grep -q '{{' "$file"; then
+    echo "FAIL: unfilled sentinel token(s) in $file: $(grep -oE '\{\{[A-Z0-9_]+\}\}' "$file" | sort -u | tr '\n' ' ') — refusing to publish placeholder content" >&2
+    return 1
+  fi
   local pf id resp
   pf="$(mktemp)"
   # 1) ensure the page exists (create or find by slug), with content
