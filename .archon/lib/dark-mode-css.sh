@@ -38,11 +38,17 @@ a:hover { color: var(--global-palette2); }'
 # Without these rules, footer text inherits body color which may match the
 # footer background (invisible text). Verified against light-mode run #4
 # where the brand HTML in the left footer column rendered black-on-black.
-FOOTER_CSS='.site-footer-wrap, .site-bottom-footer-wrap, .site-middle-footer-wrap, .site-top-footer-wrap { color: var(--global-palette5) !important; }
-.site-footer-wrap p, .site-footer-wrap span, .footer-html, .footer-html * { color: var(--global-palette5) !important; }
+FOOTER_CSS='.site-footer-wrap, .site-bottom-footer-wrap, .site-middle-footer-wrap, .site-top-footer-wrap { color: var(--global-palette9) !important; }
+.site-footer-wrap p, .site-footer-wrap span, .footer-html, .footer-html * { color: var(--global-palette9) !important; }
 .site-footer-wrap h1, .site-footer-wrap h2, .site-footer-wrap h3, .site-footer-wrap h4, .site-footer-wrap h5, .site-footer-wrap h6, .site-footer-wrap strong, .footer-html strong { color: var(--global-palette9) !important; }
 .site-footer-wrap a, .footer-navigation a { color: var(--global-palette9) !important; }
 .site-footer-wrap a:hover, .footer-navigation a:hover { color: var(--global-palette1) !important; }'
+
+# ---------- Form CSS — brand the FluentForms submit button (applies in BOTH modes) ----------
+# Must live in this bundle (not chrome.sh) because inject_mode_css REPLACES the
+# custom CSS slot last, clobbering any earlier /css injection.
+FORM_CSS='.fluentform .ff-btn-submit, .ff-btn-submit { background-color: var(--global-palette1) !important; border-color: var(--global-palette1) !important; color: var(--global-palette9) !important; }
+.fluentform .ff-btn-submit:hover, .ff-btn-submit:hover { background-color: var(--global-palette2) !important; border-color: var(--global-palette2) !important; }'
 
 # ---------- Drawer CSS — varies by mode ----------
 
@@ -72,18 +78,20 @@ EOF
 # ---------- Bundle builders ----------
 
 build_dark_css_bundle() {
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n' \
+  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
     "$DARK_CSS_BODY_TEXT" \
     "$DARK_CSS_LOGO" \
     "$DARK_CSS_HERO_PADDING" \
     "$DARK_CSS_LINKS" \
     "$FOOTER_CSS" \
+    "$FORM_CSS" \
     "$(drawer_css_for_mode dark)"
 }
 
 build_light_css_bundle() {
-  printf '%s\n%s\n' \
+  printf '%s\n%s\n%s\n' \
     "$FOOTER_CSS" \
+    "$FORM_CSS" \
     "$(drawer_css_for_mode light)"
 }
 

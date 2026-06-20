@@ -230,46 +230,23 @@ print(json.dumps({'mods':{
   bridge_post "/theme-mods/batch" "$payload" >/dev/null
 }
 
-# Light: dark footer (palette3) with light text. Dark: light footer (palette7) with dark text.
-# CRITICAL: the background AND the text/link colors must be set together, or the
-# footer inherits the default text color and renders illegibly (e.g. dark-on-dark).
+# Footer is ALWAYS a dark surface (palette3) with light text (palette9),
+# regardless of mode — matches FOOTER_CSS in dark-mode-css.sh. We only set the
+# theme_mods here; the text/link/footer + form-button colors are enforced by CSS
+# in inject_mode_css, which replaces the custom CSS slot LAST (so any /css we
+# wrote here would be clobbered — don't write it here).
 chrome_set_footer_bg() {
-  local mode="${1:-light}"
-  local bg text linkhover
-  if [ "$mode" = "dark" ]; then
-    bg='palette7'; text='palette3'; linkhover='palette1'
-  else
-    bg='palette3'; text='palette9'; linkhover='palette1'
-  fi
   local payload
   payload=$(python3 -c "
 import json
 print(json.dumps({'mods':{
-  'footer_wrap_background': {'desktop':{'color':'$bg'}},
-  'footer_html_color': {'color':'$text'},
-  'footer_link_color': {'color':'$text','hover':'$linkhover'},
-  'footer_navigation_colors': {'color':'$text','hover':'$linkhover'}
+  'footer_wrap_background': {'desktop':{'color':'palette3'}},
+  'footer_html_color': {'color':'palette9'},
+  'footer_link_color': {'color':'palette9','hover':'palette1'},
+  'footer_navigation_colors': {'color':'palette9','hover':'palette1'}
 }}))
 ")
   bridge_post "/theme-mods/batch" "$payload" >/dev/null
-
-  # Kadence does NOT reliably honor footer_html_color on the footer HTML widget,
-  # so enforce legible footer text with CSS. Also brand the FluentForms submit
-  # button with the accent (palette1) so forms match the site's CTAs.
-  local css_payload
-  css_payload=$(python3 -c "
-import json
-text='$text'
-css = (
-  '.footer-html,.footer-html-inner,.footer-html p,.footer-html a{color:var(--global-'+text+')!important}'
-  '.fluentform .ff-btn-submit,.ff-btn-submit{background-color:var(--global-palette1)!important;'
-  'border-color:var(--global-palette1)!important;color:var(--global-palette9)!important}'
-  '.fluentform .ff-btn-submit:hover,.ff-btn-submit:hover{background-color:var(--global-palette2)!important;'
-  'border-color:var(--global-palette2)!important}'
-)
-print(json.dumps({'css':css,'append':True}))
-")
-  bridge_post "/css" "$css_payload" >/dev/null
 }
 
 # ---------- PER-PAGE TRANSPARENT META ----------
