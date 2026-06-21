@@ -59,6 +59,19 @@ FORM_CSS='.fluentform .ff-btn-submit, .ff-btn-submit { background-color: var(--g
 # use different wrappers and are unaffected.
 LAYOUT_CSS='.wp-block-kadence-rowlayout .kt-row-column-wrap { max-width: 1290px !important; margin-left: auto !important; margin-right: auto !important; }'
 
+# ---------- Table CSS — DARK MODE ONLY ----------
+# WooCommerce/theme content tables ship LIGHT cell backgrounds; in dark mode the
+# light body text renders light-on-light and disappears (reported: the MEGA
+# size-guide page's size charts were whited out). Make content tables
+# transparent-bg + light text + visible borders so they read on the dark page.
+# Scoped to content areas — header/footer tables are untouched.
+DARK_CSS_TABLE='.entry-content table th, .entry-content table td, .entry-content-wrap table th, .entry-content-wrap table td, .single-content table th, .single-content table td, .woocommerce table th, .woocommerce table td { background-color: transparent !important; color: var(--global-palette4) !important; border-color: var(--global-palette6) !important; }
+.entry-content table, .entry-content-wrap table, .single-content table, .woocommerce table { border-color: var(--global-palette6) !important; }
+.entry-content table th, .entry-content-wrap table th, .single-content table th, .woocommerce table th { color: var(--global-palette3) !important; }
+/* MEGA size-guide structure ships a near-white .product-section wrapper that shows through the transparent cells — make it transparent so the dark page reads through */
+.size-guide .product-section, .product-section, .size-guide .tab-content, .size-guide .unit-tabs { background-color: transparent !important; color: var(--global-palette4) !important; }
+.size-guide h1, .size-guide h2, .size-guide h3, .size-guide h4, .size-guide .product-section strong { color: var(--global-palette3) !important; }'
+
 # ---------- Drawer CSS — varies by mode ----------
 
 drawer_css_for_mode() {
@@ -87,7 +100,7 @@ EOF
 # ---------- Bundle builders ----------
 
 build_dark_css_bundle() {
-  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
     "$DARK_CSS_BODY_TEXT" \
     "$DARK_CSS_LOGO" \
     "$DARK_CSS_HERO_PADDING" \
@@ -95,6 +108,7 @@ build_dark_css_bundle() {
     "$FOOTER_CSS" \
     "$FORM_CSS" \
     "$LAYOUT_CSS" \
+    "$DARK_CSS_TABLE" \
     "$(drawer_css_for_mode dark)"
 }
 
