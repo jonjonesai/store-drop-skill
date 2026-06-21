@@ -51,7 +51,7 @@ post() { # post <path> <json>
 # presigned premium URLs (MEGA holds the R2 keys + gates on credit balance).
 # No token → fall back to operator-side rclone presigning below.
 STORE_DROP_TOKEN="${STORE_DROP_TOKEN:-}"
-MEGA_STORE_DROP_ENDPOINT="${MEGA_STORE_DROP_ENDPOINT:-https://REPLACE-WITH-WORKER-URL/store-drop/premium-manifest}"
+MEGA_STORE_DROP_ENDPOINT="${MEGA_STORE_DROP_ENDPOINT:-https://mega-dev-worker-production.up.railway.app/store-drop/premium-manifest}"
 PREMIUM_MANIFEST_JSON=""   # populated in token mode
 
 fetch_premium_manifest() {
