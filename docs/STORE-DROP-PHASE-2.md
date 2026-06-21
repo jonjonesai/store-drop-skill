@@ -20,8 +20,9 @@ customer never does the manual connect.
 ## Workstream 2 — Premium plugin bucket expansion
 Add more licensed plugins to R2 so the drop installs a fuller pro stack. Jon owns
 the licenses (unlimited-site tiers); Claude wires the install + delivery.
-- [ ] **Rank Math Pro** — Jon has Rank Math + Pro, unlimited sites. (Free `seo-by-rank-math` already installs; add **Pro**.) Jon: `rclone copyto` the zip → R2 + bump `premium-manifest.json` sha256. Claude: add to `install-stack.sh` sequence + MEGA `store_drop_delivery.PREMIUM_ARTIFACTS`.
-- [ ] Others — TBD (candidates as Jon decides what's worth bundling).
+- [x] **Rank Math Pro** — in the bucket as `plugins/seo-by-rank-math-pro-3.0.115.zip` (slug `seo-by-rank-math-pro`, sha256 `faa6c84f8d2743050ace0150d1a66cfe0aa2f8be7a981aa6600b6f4256aa37be`). Free `seo-by-rank-math` already installs; Pro layers on top (needs free active first). **Claude wiring in progress:** `premium-manifest.json` + MEGA `store_drop_delivery.PREMIUM_ARTIFACTS` + `install-stack.sh` activation order.
+- [ ] **Fluent Affiliate** — let customers run an affiliate program out of the box (fits the Fluent stack already bundled: FluentForms + FluentCRM). Jon: drop the zip in R2 + ping; Claude wires it.
+- [ ] Others — TBD; the bucket + manifest pattern is now repeatable, so each new licensed plugin is just: Jon buckets the zip → Claude adds the manifest entry + install step.
 
 ## Workstream 3 — Optimal store settings (Jon's expertise → automated)
 The ideal WooCommerce / WordPress / Rank Math configuration a fresh store should

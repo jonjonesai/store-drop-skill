@@ -38,6 +38,15 @@
       "version": "3.1.5",
       "object_key": "plugins/fluentcrm-pro-3.1.5.zip",
       "sha256": "cea4d3ae1ccaed6e123b0b18644f0c7f0aa42a37bb9fb51a111351bc6dd73607"
+    },
+    {
+      "name": "Rank Math Pro",
+      "type": "plugin",
+      "slug": "seo-by-rank-math-pro",
+      "plugin_file": "seo-by-rank-math-pro/rank-math-pro.php",
+      "version": "3.0.115",
+      "object_key": "plugins/seo-by-rank-math-pro-3.0.115.zip",
+      "sha256": "faa6c84f8d2743050ace0150d1a66cfe0aa2f8be7a981aa6600b6f4256aa37be"
     }
   ]
 }

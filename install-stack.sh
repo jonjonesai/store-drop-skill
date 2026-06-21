@@ -148,7 +148,8 @@ install_free_plugin    "fluentform"            # free FF (Pro extends it)
 install_premium_plugin "Fluent Forms Pro"      # (R2)
 install_free_plugin    "fluent-crm"            # free FluentCRM base (Pro/Campaign extends it)
 install_premium_plugin "FluentCRM Pro"         # (R2) slug fluentcampaign-pro
-install_free_plugin    "seo-by-rank-math"
+install_free_plugin    "seo-by-rank-math"      # free RM base (Pro extends it)
+install_premium_plugin "Rank Math Pro"         # (R2) slug seo-by-rank-math-pro
 install_free_plugin    "litespeed-cache"       # idempotent if already active
 
 # --- Verify ---
