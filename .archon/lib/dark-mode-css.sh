@@ -57,7 +57,9 @@ FORM_CSS='.fluentform .ff-btn-submit, .ff-btn-submit { background-color: var(--g
 # enforce it deterministically here (inject_mode_css owns the CSS slot, runs
 # last). Only targets .wp-block-kadence-rowlayout (page content) — header/footer
 # use different wrappers and are unaffected.
-LAYOUT_CSS='.wp-block-kadence-rowlayout .kt-row-column-wrap { max-width: 1290px !important; margin-left: auto !important; margin-right: auto !important; }'
+LAYOUT_CSS='.wp-block-kadence-rowlayout .kt-row-column-wrap { max-width: 1290px !important; margin-left: auto !important; margin-right: auto !important; }
+/* Content vertical padding is hidden (for the homepage hero), which leaves the Woo breadcrumb jammed flush under the header. Give it its own top clearance. */
+.kadence-breadcrumbs { padding-top: 2rem !important; padding-bottom: 0.5rem !important; }'
 
 # ---------- Table CSS — DARK MODE ONLY ----------
 # WooCommerce/theme content tables ship LIGHT cell backgrounds; in dark mode the
