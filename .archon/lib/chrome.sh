@@ -174,8 +174,8 @@ print(json.dumps({'mods':{
   'header_main_height': {'size':{'desktop':68,'tablet':60,'mobile':51},'unit':{'desktop':'px','tablet':'px','mobile':'px'}},
   'transparent_header_enable': True,
   'transparent_header_page': False,
-  'transparent_header_post': True,
-  'transparent_header_archive': True,
+  'transparent_header_post': False,    # solid header on single posts/products — a transparent one overlaps Woo breadcrumbs at the top
+  'transparent_header_archive': False, # same for the shop + category archives
   'transparent_header_device': 'all',
   'transparent_header_background': {'desktop':{'color':''}},
   'transparent_header_navigation_color': {'color':'palette9','hover':'palette1','active':'palette1'},

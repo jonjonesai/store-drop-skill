@@ -214,8 +214,11 @@ nodes:
       bridge_post_theme_mod page_vertical_padding "hide" >/dev/null
       bridge_post_theme_mod post_content_style "unboxed" >/dev/null
       bridge_post_theme_mod post_vertical_padding "hide" >/dev/null
+      # WooCommerce 9.1+ defaults a fresh store to "coming soon" (public sees a
+      # placeholder). A dropped store should be live — turn it off.
+      bridge_post "/option/woocommerce_coming_soon" '{"value":"no"}' >/dev/null
       bridge_flush_cache
-      echo "PASS: content style set to unboxed, vertical padding hidden"
+      echo "PASS: content style set to unboxed, vertical padding hidden, store made public"
     timeout: 15000
 
   # VALIDATE: theme_mods set correctly?
