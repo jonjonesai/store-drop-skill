@@ -46,6 +46,35 @@ post() { # post <path> <json>
   curl -fsS "${AUTH[@]}" -X POST -H 'Content-Type: application/json' -d "$2" "${B}/$1"
 }
 
+# ── Premium delivery: token mode (customer) vs rclone mode (operator) ──────────
+# Customer flow: deploy.sh provides STORE_DROP_TOKEN; we ask MEGA for the
+# presigned premium URLs (MEGA holds the R2 keys + gates on credit balance).
+# No token → fall back to operator-side rclone presigning below.
+STORE_DROP_TOKEN="${STORE_DROP_TOKEN:-}"
+MEGA_STORE_DROP_ENDPOINT="${MEGA_STORE_DROP_ENDPOINT:-https://REPLACE-WITH-WORKER-URL/store-drop/premium-manifest}"
+PREMIUM_MANIFEST_JSON=""   # populated in token mode
+
+fetch_premium_manifest() {
+  [[ -z "$STORE_DROP_TOKEN" ]] && return 0   # operator/rclone mode
+  log "Requesting premium plugins from MEGA (token-gated)…"
+  local resp
+  resp="$(curl -sS --max-time 30 -X POST -H 'Content-Type: application/json' \
+    -d "{\"token\":\"${STORE_DROP_TOKEN}\"}" "$MEGA_STORE_DROP_ENDPOINT" 2>/dev/null)"
+  if ! printf '%s' "$resp" | grep -q '"artifacts"'; then
+    local msg
+    msg="$(printf '%s' "$resp" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("error","unreadable response"))' 2>/dev/null || printf '%s' "$resp")"
+    fail "MEGA declined the store-drop token: ${msg}"
+  fi
+  PREMIUM_MANIFEST_JSON="$resp"
+  ok "premium manifest received ($(printf '%s' "$resp" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["artifacts"]))' 2>/dev/null) artifacts, keys never left MEGA)"
+}
+
+# premium_field <name> <field> — read a field from the token-fetched manifest.
+premium_field() {
+  python3 -c "import json,sys;a=[x for x in json.loads(sys.argv[3])['artifacts'] if x['name']==sys.argv[1]][0];print(a.get(sys.argv[2],''))" \
+    "$1" "$2" "$PREMIUM_MANIFEST_JSON"
+}
+
 # post_retry <path> <json> — POST and retry on transient failure. The
 # free-plugin installs pull from wp.org synchronously; on a slow host the
 # download can exceed the bridge's PHP max_execution_time and 500 mid-run.
@@ -72,22 +101,34 @@ install_free_plugin() { # slug
 }
 
 install_premium_plugin() { # artifact-name
-  local name="$1" key sha url
-  key="$(manifest_field "$name" object_key)"; sha="$(manifest_field "$name" sha256)"
-  log "premium plugin: $name ($key)"
-  [[ $DRY_RUN == 1 ]] && { ok "(dry-run) would mint+install $key sha=${sha:0:12}…"; return; }
-  url="$(mint_url "$key")"
+  local name="$1" sha url
+  log "premium plugin: $name"
+  if [[ -n "$PREMIUM_MANIFEST_JSON" ]]; then           # token mode (customer)
+    sha="$(premium_field "$name" sha256)"
+    [[ $DRY_RUN == 1 ]] && { ok "(dry-run) $name (token)"; return; }
+    url="$(premium_field "$name" url)"
+  else                                                  # rclone mode (operator)
+    local key; key="$(manifest_field "$name" object_key)"; sha="$(manifest_field "$name" sha256)"
+    [[ $DRY_RUN == 1 ]] && { ok "(dry-run) would mint+install $key sha=${sha:0:12}…"; return; }
+    url="$(mint_url "$key")"
+  fi
   local r; r="$(post_retry 'plugins/install-and-activate' "{\"zip_url\":\"$url\",\"sha256\":\"$sha\"}")" \
     && ok "$name installed (sha-verified)" \
     || fail "$name -> $r"
 }
 
 install_premium_theme() { # artifact-name
-  local name="$1" key sha sty url
-  key="$(manifest_field "$name" object_key)"; sha="$(manifest_field "$name" sha256)"; sty="$(manifest_field "$name" stylesheet)"
-  log "premium theme: $name ($key)"
-  [[ $DRY_RUN == 1 ]] && { ok "(dry-run) would mint+install theme $key stylesheet=$sty"; return; }
-  url="$(mint_url "$key")"
+  local name="$1" sha sty url
+  log "premium theme: $name"
+  if [[ -n "$PREMIUM_MANIFEST_JSON" ]]; then           # token mode (customer)
+    sha="$(premium_field "$name" sha256)"; sty="$(premium_field "$name" stylesheet)"
+    [[ $DRY_RUN == 1 ]] && { ok "(dry-run) theme $name (token)"; return; }
+    url="$(premium_field "$name" url)"
+  else                                                  # rclone mode (operator)
+    local key; key="$(manifest_field "$name" object_key)"; sha="$(manifest_field "$name" sha256)"; sty="$(manifest_field "$name" stylesheet)"
+    [[ $DRY_RUN == 1 ]] && { ok "(dry-run) would mint+install theme $key stylesheet=$sty"; return; }
+    url="$(mint_url "$key")"
+  fi
   local r; r="$(post_retry 'themes/install-from-url' "{\"url\":\"$url\",\"sha256\":\"$sha\",\"stylesheet\":\"$sty\",\"activate\":true}")" \
     && ok "$name installed + activated" \
     || fail "$name -> $r"
@@ -95,6 +136,7 @@ install_premium_theme() { # artifact-name
 
 # --- Order matters: theme first, then free blocks, then pro blocks, then the rest ---
 log "Stack install → ${BRIDGE_SITE}"
+fetch_premium_manifest   # token mode: pulls presigned premium URLs from MEGA
 
 install_premium_theme  "Kadence"               # Kadence theme 1.5.0 (R2)
 install_free_plugin    "kadence-blocks"        # free blocks (Pro depends on it)

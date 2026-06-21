@@ -73,6 +73,27 @@ SITE_NAME="$(printf '%s' "$INFO" | python3 -c 'import json,sys;print(json.load(s
 ok "Bridge reachable — site: $SITE_NAME"
 
 # ============================================================
+# Step 1a — store-drop token (proves you're a paid MEGA member)
+# ============================================================
+# The token gates the licensed premium plugins: install-stack.sh sends it to
+# MEGA, which checks your credit balance and hands back the download links.
+# Buying credits includes the store-drop skill. Stored in .env for install-stack.
+if [ "$RESET_ENV" = 1 ] || ! grep -q '^STORE_DROP_TOKEN=' .env 2>/dev/null; then
+  echo
+  say "===== Store-drop token ====="
+  echo "Paste your store-drop token (MEGA → Settings → Generate store-drop token)."
+  echo "Leave blank only if your site already has the premium stack installed."
+  read -r -p "  Token: " SDT
+  if [ -n "$SDT" ]; then
+    # replace any existing line, then append
+    grep -v '^STORE_DROP_TOKEN=' .env > .env.tmp 2>/dev/null || true
+    mv -f .env.tmp .env 2>/dev/null || true
+    printf 'STORE_DROP_TOKEN=%s\n' "$SDT" >> .env
+    ok "Token saved"
+  fi
+fi
+
+# ============================================================
 # Step 1b — ensure the store stack is installed
 # ============================================================
 # deploy-pod-store assumes Kadence + WooCommerce + the Fluent stack are present.
