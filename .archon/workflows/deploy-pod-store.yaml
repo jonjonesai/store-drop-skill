@@ -244,12 +244,35 @@ nodes:
       echo "PASS: page_content_style=$PCS, page_vertical_padding=$PVP"
     timeout: 15000
 
+  # Expert WP/Woo/LiteSpeed core settings that WP ships wrong by default — locked
+  # in after the 2026-06-21 generationx.art shoot where all three were missing:
+  # permalinks -> /category/postname/, all media sizes zeroed, LiteSpeed image
+  # WebP optimization on. See .archon/lib/wp-settings.sh for the what + why.
+  - id: enforce-wp-settings
+    depends_on: [check-content-style]
+    bash: |
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/wp-settings.sh"
+      bridge_check_env || exit 1
+      wp_apply_core_settings
+    timeout: 20000
+
+  # VALIDATE: settings stuck?
+  - id: check-wp-settings
+    depends_on: [enforce-wp-settings]
+    bash: |
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
+      source "$HOME/kadence-skill/store-drop-skill/.archon/lib/wp-settings.sh"
+      bridge_check_env || exit 1
+      wp_check_core_settings
+    timeout: 15000
+
   # ================================================================
   # PHASE 3: PRODUCTS + CATEGORIES
   # ================================================================
 
   - id: create-products
-    depends_on: [check-content-style]
+    depends_on: [check-wp-settings]
     context: fresh
     command: create-products-and-categories
 

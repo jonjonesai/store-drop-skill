@@ -30,11 +30,17 @@ ship with. **Jon fills this from experience; Claude builds each into the workflo
 as a deterministic bridge call.** Seed list below — expand freely:
 
 ### WordPress core
-- [ ] Permalinks → Post name
+- [x] **Permalinks → `/%category%/%postname%/`** — `enforce-wp-settings` node (2026-06-22)
+- [x] **Media sizes all zeroed** — no thumbnail/medium/large/medium_large copies per upload (2026-06-22)
+- [x] **LiteSpeed image WebP optimization on** — `img_optm-auto` + `img_optm-webp=1` (2026-06-22; full conversion via QUIC.cloud once domain key connects)
 - [ ] Timezone / date format
 - [ ] Discourage-search-engines = OFF (store is public — done via coming-soon, confirm WP `blog_public=1`)
 - [ ] Comments off on products
 - [ ] *(Jon: add your settings…)*
+
+### Spam protection (Jon flagged 2026-06-22; deferred here from the settings pass)
+- [ ] **FluentForms honeypot** — keyless, fully automatable now over the bridge; turn on by default.
+- [ ] **reCAPTCHA "solved for the user"** — needs per-domain Google site/secret keys. Design call: auto-mint via a Google reCAPTCHA API, or ship a shared MEGA key, or have MEGA hold keys and inject. Pick the approach, then wire it into the forms step.
 
 ### WooCommerce
 - [ ] Store address / base country
