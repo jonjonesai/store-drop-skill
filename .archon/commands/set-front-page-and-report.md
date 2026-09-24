@@ -1,6 +1,7 @@
 # Set Front Page and Generate Report
 
-**Credentials:** Read bridge credentials from `~/kadence-skill/store-drop-skill/.env` or `/tmp/archon-bridge/.env`. Source the file to get BRIDGE_URL, BRIDGE_USER, BRIDGE_PASS, BRIDGE_SITE. Use HTTP Basic Auth with BRIDGE_USER:BRIDGE_PASS for all API calls.
+Bridge credentials are already present in the allowlisted environment. Never
+read a credentials file, print a secret, or put a secret in a prompt or argument.
 
 Read page IDs from `$ARTIFACTS_DIR/pages.json` and intake from `$ARTIFACTS_DIR/intake.json`.
 
@@ -19,12 +20,16 @@ POST /option/page_on_front with {"value": HOMEPAGE_ID}
 POST /cache/flush
 ```
 
-### 3. Print final summary
+### 3. Do not synthesize the final certificate
 
-Output a verification table to the student:
+Print the page URLs as a convenience, but do not claim that requested colors,
+copy, products, forms, or settings are live. The deterministic `final-check`
+node reads the resulting site back and writes the machine-readable certificate.
+
+Output this table:
 
 ```
-Your store is live!
+Store build completed; launch certification follows read-back.
 
 | Page              | URL                        |
 |-------------------|----------------------------|
@@ -36,14 +41,5 @@ Your store is live!
 | Terms of Service  | SITE_URL/terms-of-service/ |
 | Returns & Refunds | SITE_URL/returns-and-refunds/ |
 
-Brand: BRAND_NAME
-Mode: light/dark
-Palette: PRIMARY_COLOR
-Fonts: HEADING_FONT / BODY_FONT
-
-What's next:
-1. Open your site in a browser and check each page
-2. Replace the 4 placeholder products with real designs from MEGA
-3. Upload your logo if you haven't already
-4. Everything is reversible — just tell me to fix anything
+The deterministic report will list actual read-back values and unresolved drafts.
 ```

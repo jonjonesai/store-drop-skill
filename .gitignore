@@ -5,3 +5,5 @@ intake.json
 node_modules/
 *.pyc
 __pycache__/
+.archon/logs/
+final-report.json

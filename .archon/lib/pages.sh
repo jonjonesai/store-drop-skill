@@ -56,7 +56,7 @@ pages_ensure_from_file() {
     echo "FAIL: unfilled sentinel token(s) in $file: $(grep -oE '\{\{[A-Z0-9_]+\}\}' "$file" | sort -u | tr '\n' ' ') — refusing to publish placeholder content" >&2
     return 1
   fi
-  local pf id resp
+  local pf id resp before
   pf="$(mktemp)"
   # 1) ensure the page exists (create or find by slug), with content
   python3 - "$title" "$slug" "$file" > "$pf" <<'PY'
@@ -66,13 +66,13 @@ content = open(fn, encoding="utf-8").read()
 json.dump({"title": title, "slug": slug, "status": "publish",
            "type": "page", "content": content}, sys.stdout)
 PY
-  resp="$(curl -s --max-time 30 -X POST "${BRIDGE_URL}/pages/ensure" \
-    -u "$BRIDGE_AUTH" -H "Content-Type: application/json" --data @"$pf")"
+  resp="$(bridge_post_file "/pages/ensure" "$pf")"
   id="$(printf '%s' "$resp" \
     | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('id') or d.get('page',{}).get('id',''))" 2>/dev/null)"
   if [ -z "$id" ]; then
     rm -f "$pf"; echo "FAIL: /pages/ensure returned no id: $resp" >&2; return 1
   fi
+  before="$(bridge_get "/posts/${id}" || true)"
   # 2) force-overwrite the body on the resolved id — /pages/ensure is
   #    slug-idempotent and will NOT overwrite a pre-existing page's content,
   #    so a re-run against an existing slug would otherwise keep stale body.
@@ -81,9 +81,17 @@ import json, sys
 content = open(sys.argv[1], encoding="utf-8").read()
 json.dump({"status": "publish", "content": content}, sys.stdout)
 PY
-  curl -s --max-time 30 -X POST "${BRIDGE_URL}/posts/${id}" \
-    -u "$BRIDGE_AUTH" -H "Content-Type: application/json" --data @"$pf" >/dev/null
+  resp="$(bridge_post_file "/posts/${id}" "$pf")"
   rm -f "$pf"
+  printf '%s' "$resp" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1 || {
+    echo "FAIL: page ${slug} update returned invalid JSON" >&2
+    return 1
+  }
+  bridge_flush_cache
+  bridge_get "/posts/${id}" >/dev/null || {
+    echo "FAIL: page ${slug} did not read back after mutation" >&2
+    return 1
+  }
   printf '%s' "$id"
 }
 

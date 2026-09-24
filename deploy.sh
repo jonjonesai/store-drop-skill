@@ -7,21 +7,50 @@
 #   ./deploy.sh --reset      # re-prompt even if .env / intake.json exist
 #   ./deploy.sh --intake     # only refresh intake.json, keep .env
 #
-# Pre-requisites (one-time setup, see README): WSL (if Windows), Claude Code,
-# Archon CLI, this repo cloned to ~/kadence-skill/store-drop-skill.
+# Pre-requisites: Archon CLI plus the selected provider. Codex is the default;
+# Claude and Pi remain supported adapters.
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
 RESET_ENV=0
 RESET_INTAKE=0
-case "${1:-}" in
-  --reset) RESET_ENV=1; RESET_INTAKE=1 ;;
-  --intake) RESET_INTAKE=1 ;;
-  --help|-h)
-    sed -n '2,12p' "$0" | sed 's/^# //'
-    exit 0 ;;
-esac
+PROVIDER=""
+MODEL=""
+DRY_RUN=0
+ARCHON_DRY_RUN=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --reset) RESET_ENV=1; RESET_INTAKE=1 ;;
+    --intake) RESET_INTAKE=1 ;;
+    --provider) shift; PROVIDER="${1:?--provider requires codex, claude, or pi}" ;;
+    --model) shift; MODEL="${1:?--model requires a model id}" ;;
+    --dry-run) DRY_RUN=1 ;;
+    --archon-dry-run) ARCHON_DRY_RUN=1 ;;
+    --validate)
+      python3 -m unittest discover -s tests -v
+      archon validate workflows deploy-pod-store
+      archon validate commands
+      exit 0 ;;
+    --help|-h)
+      sed -n '2,16p' "$0" | sed 's/^# //'
+      exit 0 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+RUNNER=(python3 scripts/run-store-drop.py)
+[ -z "$PROVIDER" ] || RUNNER+=(--provider "$PROVIDER")
+[ -z "$MODEL" ] || RUNNER+=(--model "$MODEL")
+if [ "$DRY_RUN" = 1 ]; then
+  "${RUNNER[@]}" --dry-run
+  exit $?
+fi
+if [ "$ARCHON_DRY_RUN" = 1 ]; then
+  "${RUNNER[@]}" --archon-dry-run
+  exit $?
+fi
 
 # $'...' makes bash interpret the escape sequences (vs. literal backslashes)
 GREEN=$'\033[0;32m'; CYAN=$'\033[0;36m'; YELLOW=$'\033[0;33m'; RED=$'\033[0;31m'; BOLD=$'\033[1m'; NC=$'\033[0m'
@@ -62,10 +91,17 @@ else
   ok "Using existing .env (run with --reset to re-enter)"
 fi
 
-# Quick sanity: source the .env and try /info
-set -a; . ./.env; set +a
-: "${BRIDGE_USER:=claude-bot}"
-INFO="$(curl -s --max-time 10 "${BRIDGE_URL}/info" -u "${BRIDGE_USER}:${BRIDGE_PASS}" || true)"
+# Parse, never source, dotenv. Values containing spaces, quotes, hashes, or
+# application-password groupings remain data and are never shell code.
+python3 scripts/config-file.py validate .env || fail ".env is not valid dotenv"
+BRIDGE_URL="$(python3 scripts/config-file.py get .env BRIDGE_URL)"
+BRIDGE_USER="$(python3 scripts/config-file.py get .env BRIDGE_USER)"
+BRIDGE_PASS="$(python3 scripts/config-file.py get .env BRIDGE_PASS)"
+BRIDGE_SITE="$(python3 scripts/config-file.py get .env BRIDGE_SITE)"
+: "${BRIDGE_USER:=store-drop-agent}"
+export BRIDGE_URL BRIDGE_USER BRIDGE_PASS BRIDGE_SITE
+source .archon/lib/bridge.sh
+INFO="$(bridge_get "/info" || true)"
 if ! printf '%s' "$INFO" | grep -q '"success":true'; then
   fail "Could not reach bridge at $BRIDGE_URL. Check that the plugin is active and your credentials are correct."
 fi
@@ -85,10 +121,7 @@ if [ "$RESET_ENV" = 1 ] || ! grep -q '^STORE_DROP_TOKEN=' .env 2>/dev/null; then
   echo "Leave blank only if your site already has the premium stack installed."
   read -r -p "  Token: " SDT
   if [ -n "$SDT" ]; then
-    # replace any existing line, then append
-    grep -v '^STORE_DROP_TOKEN=' .env > .env.tmp 2>/dev/null || true
-    mv -f .env.tmp .env 2>/dev/null || true
-    printf 'STORE_DROP_TOKEN=%s\n' "$SDT" >> .env
+    python3 scripts/config-file.py set .env STORE_DROP_TOKEN "$SDT"
     ok "Token saved"
   fi
 fi
@@ -190,6 +223,14 @@ data = {
   'color': os.environ['COLOR'],
   'categories': os.environ['CATEGORIES'],
   'logo': os.environ['LOGO'],
+  'facts': {
+    'confirmed_organization_facts': [],
+    'approved_policies': {
+      'shipping': '', 'returns': '', 'guarantee': '',
+      'donation_impact': '', 'service_levels': '',
+    },
+  },
+  'launch': {'enable_sales': False, 'approved_by': ''},
 }
 print(json.dumps(data, indent=2))
 " > intake.json
@@ -210,10 +251,4 @@ echo "Running the Archon workflow. Takes about 15 minutes."
 echo "You'll see [node] Started/Completed lines as it progresses."
 echo
 
-# Filter cosmetic 'claude.rate_limit_event' log lines from Archon's stdout.
-# These are billing-tier display warnings (mismatch between Pro tier rate limit
-# and PAYG overage), purely cosmetic, but they read as broken to a fresh student.
-# Suppressing them keeps the on-screen scroll focused on actual workflow events.
-set -o pipefail
-./.archon/scripts/run-archon.sh workflow run deploy-pod-store 2>&1 \
-  | grep --line-buffered -v -E '"claude\.rate_limit_event"|"out_of_credits"'
+"${RUNNER[@]}"

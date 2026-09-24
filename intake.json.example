@@ -4,5 +4,19 @@
   "mode": "light",
   "color": "#FF1493",
   "categories": "T-Shirts, Hoodies, Mugs",
-  "logo": "skip"
+  "logo": "skip",
+  "facts": {
+    "confirmed_organization_facts": [],
+    "approved_policies": {
+      "shipping": "",
+      "returns": "",
+      "guarantee": "",
+      "donation_impact": "",
+      "service_levels": ""
+    }
+  },
+  "launch": {
+    "enable_sales": false,
+    "approved_by": ""
+  }
 }

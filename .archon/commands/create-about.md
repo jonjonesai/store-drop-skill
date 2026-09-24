@@ -7,13 +7,16 @@ You are creating ONE page: about. Do not touch any other page.
 ## Setup
 
 ```bash
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
+source "$STORE_DROP_ROOT/.archon/lib/bridge.sh"
+source "$STORE_DROP_ROOT/.archon/lib/intake.sh"
+source "$STORE_DROP_ROOT/.archon/lib/pages.sh"
 bridge_check_env || exit 1
 ```
 
 Read intake from `$ARTIFACTS_DIR/intake.json`.
+Read `references/editorial-safety.md`. Use only confirmed intake facts and safe
+neutral defaults. Do not invent an origin, mission program, cultural review,
+charitable impact, ownership, or commercial policy.
 
 > ⚠️ **NEVER inline page HTML into a JSON string yourself, and never POST `content` directly via curl.** Doing so corrupts every newline into the literal letter `n` (`\n` → `\\n` → wp_unslash → `n`), producing `>nn<` garbage across the page. Page content is written **only** by `pages_ensure_from_file`, which reads a file and encodes it correctly. Your job is to produce the substituted HTML *as a file*, nothing more.
 

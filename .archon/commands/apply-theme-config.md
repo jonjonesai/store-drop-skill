@@ -1,6 +1,7 @@
 # Apply Theme Configuration
 
-**Credentials:** Read bridge credentials from `~/kadence-skill/store-drop-skill/.env` (or `$ARTIFACTS_DIR/.env`). The file contains BRIDGE_URL, BRIDGE_USER, BRIDGE_PASS, BRIDGE_SITE. Use these for all API calls.
+Bridge credentials are already present in the allowlisted environment. Never
+read a credentials file, print a secret, or put a secret in a prompt or argument.
 
 Read the intake answers from `$ARTIFACTS_DIR/intake.json`.
 

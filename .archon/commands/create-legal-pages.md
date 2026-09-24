@@ -31,13 +31,16 @@ The python3 step handles ALL quote escaping. Apostrophes in the content pass thr
 ## Setup
 
 ```bash
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
+source "$STORE_DROP_ROOT/.archon/lib/bridge.sh"
+source "$STORE_DROP_ROOT/.archon/lib/intake.sh"
+source "$STORE_DROP_ROOT/.archon/lib/pages.sh"
 bridge_check_env || exit 1
 ```
 
 Read intake from `$ARTIFACTS_DIR/intake.json`. Read the three boilerplate files:
+Read `references/editorial-safety.md`. Unless matching policy text is present in
+`intake.json.facts.approved_policies`, preserve the visible `Prelaunch Draft`
+and `Review Required Before Launch` text. Never invent legal or commercial terms.
 
 - `boilerplate/privacy-policy.md`
 - `boilerplate/terms-of-service.md`
@@ -101,7 +104,7 @@ Do NOT set `_kad_post_transparent` on legal pages — they use the solid header.
 Immediately after step 3, fetch the rendered HTML and confirm:
 
 ```bash
-RENDER=$(curl -s "${BRIDGE_URL}/render?url=/${SLUG}/" -u "${BRIDGE_USER}:${BRIDGE_PASS}")
+RENDER=$(bridge_get "/render?url=/${SLUG}/")
 if echo "$RENDER" | grep -qi "Suggested text"; then
   echo "FAIL: ${SLUG} still contains WP's 'Suggested text:' — content POST didn't take. Re-run step 3 with the content explicit."
   exit 1

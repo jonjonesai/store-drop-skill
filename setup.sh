@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # Mega Management — Store Drop one-command setup
-# Installs everything: git/curl, Claude Code, Archon, the skill.
+# Installs everything: git/curl, Codex, Archon, and the skill.
 # Handles the PATH automatically — no "command not found", ever.
 # Usage:  curl -fsSL <this-url> | bash
 # ============================================================
@@ -16,21 +16,20 @@ cat <<'BANNER'
 
 BANNER
 
-say "Installing base tools (git, curl)..."
+say "Installing base tools (git, curl, Node.js)..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq git curl
+sudo apt-get install -y -qq git curl nodejs npm
 
 # Put ~/.local/bin on PATH FIRST — both for this run and permanently in
-# .bashrc — so Claude's installer sees it's already there and never prints
-# its "command not found / run this PATH line" note. The user sees nothing.
+# .bashrc so locally installed tools remain discoverable.
 mkdir -p "$HOME/.local/bin"
 if ! grep -qs '.local/bin' "$HOME/.bashrc"; then
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
-say "Installing Claude Code..."
-curl -fsSL https://claude.ai/install.sh | bash
+say "Installing Codex..."
+sudo npm install -g @openai/codex
 
 say "Installing Archon..."
 curl -fsSL https://archon.diy/install | bash
@@ -45,8 +44,8 @@ cat <<'DONE'
 
   ✅  ALL SET. Two steps left:
 
-      1.  Open a fresh terminal, then log in to Claude:
-              claude
+      1.  Open a fresh terminal, then log in to Codex:
+              codex login
 
       2.  Drop your store:
               cd ~/kadence-skill/store-drop-skill && ./deploy.sh

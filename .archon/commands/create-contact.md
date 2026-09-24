@@ -5,13 +5,30 @@ You are creating ONE page: contact. Do not touch any other page.
 ## Setup
 
 ```bash
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/bridge.sh"
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/intake.sh"
-source "$HOME/kadence-skill/store-drop-skill/.archon/lib/pages.sh"
+source "$STORE_DROP_ROOT/.archon/lib/bridge.sh"
+source "$STORE_DROP_ROOT/.archon/lib/intake.sh"
+source "$STORE_DROP_ROOT/.archon/lib/pages.sh"
 bridge_check_env || exit 1
 ```
 
 Read intake from `$ARTIFACTS_DIR/intake.json`.
+
+Before creating the page, rename any Fluent Forms record whose visible title
+contains `Demo` to `Contact Form`. Use this deterministic `/wp-eval` mutation;
+it snapshots titles in its result, updates only matching rows, and returns the
+read-back titles. Encode the code with `json.dumps`, call `bridge_post`, flush
+cache, and stop if any returned `after` title still contains `Demo`:
+
+```php
+global $wpdb;
+$table = $wpdb->prefix . 'fluentform_forms';
+$before = $wpdb->get_col("SELECT title FROM {$table}");
+$wpdb->query("UPDATE {$table} SET title='Contact Form' WHERE title LIKE '%Demo%'");
+$after = $wpdb->get_col("SELECT title FROM {$table}");
+return array('before' => $before, 'after' => $after);
+```
+
+Do not print credentials.
 
 > ⚠️ **NEVER inline page HTML into a JSON string yourself, and never POST `content` directly via curl.** Doing so corrupts every newline into the literal letter `n` (`\n` → `\\n` → wp_unslash → `n`), producing `>nn<` garbage across the page. Page content is written **only** by `pages_ensure_from_file`, which reads a file and encodes it correctly. Your job is to produce the substituted HTML *as a file*, nothing more.
 

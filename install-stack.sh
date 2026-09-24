@@ -22,10 +22,19 @@ PRESIGN_TTL="${PRESIGN_TTL:-600}"   # seconds
 DRY_RUN=0
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
 
+if [[ -z "${BRIDGE_URL:-}" || -z "${BRIDGE_PASS:-}" ]]; then
+  BRIDGE_URL="$(python3 "$HERE/scripts/config-file.py" get "$HERE/.env" BRIDGE_URL)"
+  BRIDGE_USER="$(python3 "$HERE/scripts/config-file.py" get "$HERE/.env" BRIDGE_USER)"
+  BRIDGE_PASS="$(python3 "$HERE/scripts/config-file.py" get "$HERE/.env" BRIDGE_PASS)"
+  BRIDGE_SITE="$(python3 "$HERE/scripts/config-file.py" get "$HERE/.env" BRIDGE_SITE)"
+  STORE_DROP_TOKEN="$(python3 "$HERE/scripts/config-file.py" get "$HERE/.env" STORE_DROP_TOKEN)"
+  export BRIDGE_URL BRIDGE_USER BRIDGE_PASS BRIDGE_SITE STORE_DROP_TOKEN
+fi
+STORE_DROP_ROOT="$HERE"
+export STORE_DROP_ROOT
 # shellcheck disable=SC1091
-set -a; source "$HERE/.env"; set +a
+source "$HERE/.archon/lib/bridge.sh"
 B="${BRIDGE_URL%/}"
-AUTH=(-u "${BRIDGE_USER}:${BRIDGE_PASS}")
 
 log()  { printf '\033[1;36m▶ %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m  ✓ %s\033[0m\n' "$*"; }
@@ -43,7 +52,7 @@ manifest_field() { python3 -c "import json,sys;a=[x for x in json.load(open('$MA
 BUCKET="$(python3 -c "import json;print(json.load(open('$MANIFEST'))['bucket'])")"
 
 post() { # post <path> <json>
-  curl -fsS "${AUTH[@]}" -X POST -H 'Content-Type: application/json' -d "$2" "${B}/$1"
+  printf '%s' "$2" | bridge_curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- "${B}/$1"
 }
 
 # ── Premium delivery: token mode (customer) vs rclone mode (operator) ──────────
@@ -58,8 +67,8 @@ fetch_premium_manifest() {
   [[ -z "$STORE_DROP_TOKEN" ]] && return 0   # operator/rclone mode
   log "Requesting premium plugins from MEGA (token-gated)…"
   local resp
-  resp="$(curl -sS --max-time 30 -X POST -H 'Content-Type: application/json' \
-    -d "{\"token\":\"${STORE_DROP_TOKEN}\"}" "$MEGA_STORE_DROP_ENDPOINT" 2>/dev/null)"
+  resp="$(STORE_DROP_TOKEN_VALUE="$STORE_DROP_TOKEN" python3 -c 'import json,os;print(json.dumps({"token":os.environ["STORE_DROP_TOKEN_VALUE"]}))' \
+    | curl -sS --max-time 30 -X POST -H 'Content-Type: application/json' --data-binary @- "$MEGA_STORE_DROP_ENDPOINT" 2>/dev/null)"
   if ! printf '%s' "$resp" | grep -q '"artifacts"'; then
     local msg
     msg="$(printf '%s' "$resp" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("error","unreadable response"))' 2>/dev/null || printf '%s' "$resp")"
@@ -85,7 +94,7 @@ premium_field() {
 post_retry() {
   local path="$1" body="$2" attempts="${POST_ATTEMPTS:-6}" i r
   for ((i=1; i<=attempts; i++)); do
-    r="$(curl -sS --max-time 180 "${AUTH[@]}" -X POST -H 'Content-Type: application/json' -d "$body" "${B}/${path}" 2>/dev/null)"
+    r="$(printf '%s' "$body" | bridge_curl -sS --max-time 180 -X POST -H 'Content-Type: application/json' --data-binary @- "${B}/${path}" 2>/dev/null)"
     if printf '%s' "$r" | grep -q '"success":true'; then printf '%s' "$r"; return 0; fi
     [[ $i -lt $attempts ]] && { printf '\033[1;33m  … attempt %d/%d failed, retrying in 4s\033[0m\n' "$i" "$attempts" >&2; sleep 4; }
   done
@@ -154,6 +163,6 @@ install_free_plugin    "litespeed-cache"       # idempotent if already active
 
 # --- Verify ---
 log "Post-install verification"
-curl -fsS "${AUTH[@]}" "${B}/info" | python3 -c "import sys,json;d=json.load(sys.stdin);print('  theme:',d.get('theme'),'| woo:',d.get('woocommerce_active'),'| kadence_pro:',d.get('kadence_pro_active'))"
-curl -fsS "${AUTH[@]}" -X POST "${B}/cache/flush" >/dev/null && ok "cache flushed"
+bridge_curl -fsS "${B}/info" | python3 -c "import sys,json;d=json.load(sys.stdin);print('  theme:',d.get('theme'),'| woo:',d.get('woocommerce_active'),'| kadence_pro:',d.get('kadence_pro_active'))"
+bridge_curl -fsS -X POST "${B}/cache/flush" >/dev/null && ok "cache flushed"
 ok "stack install complete"
