@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -42,20 +43,63 @@ STORE_ENV = {
     "MEGA_STORE_DROP_ENDPOINT",
 }
 PROVIDER_ENV = {
-    "codex": {"CODEX_HOME", "CODEX_BIN_PATH", "OPENAI_API_KEY"},
-    "claude": {"CLAUDE_BIN_PATH", "ANTHROPIC_API_KEY"},
+    "codex": {"CODEX_HOME", "CODEX_BIN_PATH", "CODEX_ACCESS_TOKEN", "OPENAI_API_KEY"},
+    "claude": {
+        "CLAUDE_BIN_PATH",
+        "CLAUDE_CONFIG_DIR",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_OAUTH_TOKEN",
+    },
     "pi": {
+        "PI_BIN_PATH",
         "PI_CONFIG_DIR",
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_OAUTH_TOKEN",
         "GEMINI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "NVIDIA_API_KEY",
+        "COPILOT_GITHUB_TOKEN",
         "GROQ_API_KEY",
         "MISTRAL_API_KEY",
         "CEREBRAS_API_KEY",
         "XAI_API_KEY",
         "OPENROUTER_API_KEY",
+        "AI_GATEWAY_API_KEY",
+        "ZAI_API_KEY",
+        "ZAI_CODING_CN_API_KEY",
+        "OPENCODE_API_KEY",
+        "RADIUS_API_KEY",
         "HF_TOKEN",
+        "FIREWORKS_API_KEY",
+        "TOGETHER_API_KEY",
+        "BASETEN_API_KEY",
+        "KIMI_API_KEY",
+        "META_API_KEY",
+        "MINIMAX_API_KEY",
+        "MINIMAX_CN_API_KEY",
+        "MOONSHOT_API_KEY",
+        "QWEN_TOKEN_PLAN_API_KEY",
+        "QWEN_TOKEN_PLAN_CN_API_KEY",
+        "XIAOMI_API_KEY",
+        "XIAOMI_TOKEN_PLAN_CN_API_KEY",
+        "XIAOMI_TOKEN_PLAN_AMS_API_KEY",
+        "XIAOMI_TOKEN_PLAN_SGP_API_KEY",
     },
+}
+
+PI_BACKEND_ENV = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GEMINI_API_KEY",
+    "google-gemini": "GEMINI_API_KEY",
+    "github-copilot": "COPILOT_GITHUB_TOKEN",
+    "huggingface": "HF_TOKEN",
+    "vercel-ai-gateway": "AI_GATEWAY_API_KEY",
+    "opencode": "OPENCODE_API_KEY",
+    "opencode-go": "OPENCODE_API_KEY",
+    "kimi-coding": "KIMI_API_KEY",
 }
 
 
@@ -77,31 +121,104 @@ class ProviderConfig:
         if selected not in SUPPORTED_PROVIDERS:
             supported = ", ".join(SUPPORTED_PROVIDERS)
             raise ConfigError(f"unsupported AI provider {selected!r}; choose {supported}")
+        saved_provider = environ.get("AI_PROVIDER", "").lower()
+        if model:
+            selected_model = model
+        elif provider and saved_provider != selected:
+            # An explicit provider switch must not inherit the previous
+            # provider's model from dotenv.
+            selected_model = DEFAULT_MODELS[selected]
+        else:
+            selected_model = environ.get("AI_MODEL") or DEFAULT_MODELS[selected]
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]*", selected_model):
+            raise ConfigError("AI model must be a non-empty model id without whitespace")
+        if selected == "pi" and "/" not in selected_model:
+            raise ConfigError("Pi model must use backend/model format")
         return cls(
             provider=selected,
-            model=model or environ.get("AI_MODEL") or DEFAULT_MODELS[selected],
+            model=selected_model,
             command=command or environ.get("ARCHON_COMMAND") or "archon",
         )
+
+    def provider_executable(self, environ: Mapping[str, str]) -> str | None:
+        setting, fallback = {
+            "codex": ("CODEX_BIN_PATH", "codex"),
+            "claude": ("CLAUDE_BIN_PATH", "claude"),
+            "pi": ("PI_BIN_PATH", "pi"),
+        }[self.provider]
+        candidate = environ.get(setting) or fallback
+        return shutil.which(candidate, path=environ.get("PATH", ""))
 
     def auth_status(self, environ: Mapping[str, str]) -> tuple[bool, str]:
         home = Path(environ.get("HOME", ""))
         if self.provider == "codex":
-            codex_home = Path(environ.get("CODEX_HOME", home / ".codex"))
-            if environ.get("OPENAI_API_KEY") or (codex_home / "auth.json").is_file():
+            if environ.get("OPENAI_API_KEY") or environ.get("CODEX_ACCESS_TOKEN"):
+                return True, "Codex authentication found"
+            if self._cli_auth_ready(environ):
                 return True, "Codex authentication found"
             return False, "Codex authentication missing; run `codex login` or set OPENAI_API_KEY"
         if self.provider == "claude":
-            if environ.get("ANTHROPIC_API_KEY") or (home / ".claude" / ".credentials.json").is_file():
+            if any(
+                environ.get(key)
+                for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_OAUTH_TOKEN")
+            ):
                 return True, "Claude authentication found"
-            return False, "Claude authentication missing; run `claude` and /login or set ANTHROPIC_API_KEY"
+            if self._cli_auth_ready(environ):
+                return True, "Claude authentication found"
+            return False, "Claude authentication missing; run `claude auth login` or set ANTHROPIC_API_KEY"
         model_backend = self.model.split("/", 1)[0].upper().replace("-", "_")
-        key = {"GOOGLE": "GEMINI_API_KEY", "HUGGINGFACE": "HF_TOKEN"}.get(
-            model_backend, f"{model_backend}_API_KEY"
-        )
+        backend = self.model.split("/", 1)[0].lower()
+        key = PI_BACKEND_ENV.get(backend, f"{model_backend}_API_KEY")
         pi_config = Path(environ.get("PI_CONFIG_DIR", home / ".pi" / "agent"))
-        if environ.get(key) or (pi_config / "auth.json").is_file():
+        if environ.get(key) or self._pi_auth_has_backend(pi_config / "auth.json", self.model):
             return True, f"Pi authentication found for {self.model}"
         return False, f"Pi authentication missing; run `pi /login` or set {key}"
+
+    def _cli_auth_ready(self, environ: Mapping[str, str]) -> bool:
+        executable = self.provider_executable(environ)
+        if not executable or self.provider == "pi":
+            return False
+        argv = {
+            "codex": [executable, "login", "status"],
+            "claude": [executable, "auth", "status", "--json"],
+        }[self.provider]
+        allowed = COMMON_ENV | PROVIDER_ENV[self.provider]
+        status_env = {key: value for key, value in environ.items() if key in allowed and value}
+        try:
+            result = subprocess.run(
+                argv,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+                env=status_env,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return result.returncode == 0
+
+    @staticmethod
+    def _pi_auth_has_backend(path: Path, model: str) -> bool:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        backend = model.split("/", 1)[0].lower()
+        return isinstance(data, dict) and backend in {str(key).lower() for key in data}
+
+    def require_provider_executable(self, environ: Mapping[str, str]) -> str:
+        executable = self.provider_executable(environ)
+        if not executable:
+            setting = {
+                "codex": "CODEX_BIN_PATH",
+                "claude": "CLAUDE_BIN_PATH",
+                "pi": "PI_BIN_PATH",
+            }[self.provider]
+            raise ConfigError(
+                f"selected provider command not found: {self.provider}; "
+                f"install it or configure {setting}"
+            )
+        return executable
 
 
 def build_child_env(

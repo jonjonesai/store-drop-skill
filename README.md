@@ -29,6 +29,14 @@ cp .env.example .env
 cp intake.json.example intake.json
 ```
 
+Install at least one provider CLI before the first live run:
+
+| Choice | Install | Native login |
+|---|---|---|
+| Codex | `npm install -g @openai/codex@latest` | `codex login` |
+| Claude | `npm install -g @anthropic-ai/claude-code` | `claude auth login` |
+| Pi | `npm install -g --ignore-scripts @earendil-works/pi-coding-agent` | Run `pi`, then `/login` |
+
 Paste bridge values into `.env` and edit `intake.json`. Dotenv is parsed as
 data, never sourced as shell. Application passwords containing spaces, quotes,
 hashes, or empty values are supported.
@@ -48,7 +56,9 @@ Start an interactive run:
 
 Store Drop asks which AI to use. If that provider is not authenticated, it
 offers to open the provider's native, secure login before collecting WordPress
-credentials or changing the site. For an explicit or automated Codex run:
+credentials or changing the site. It also verifies the selected adapter and
+Archon 0.10.1+ before any WordPress access. For an explicit or automated Codex
+run:
 
 ```bash
 ./deploy.sh --provider codex --model gpt-5.6-sol
@@ -57,12 +67,12 @@ credentials or changing the site. For an explicit or automated Codex run:
 Run the backward-compatible Claude adapter:
 
 ```bash
-claude  # complete /login once
+claude auth login
 ./deploy.sh --provider claude --model sonnet
 ```
 
-For an OpenAI-compatible backend supported by Pi, authenticate/configure that
-backend in Pi, then select it without editing the DAG:
+For an OpenAI-compatible backend supported by Pi, run `pi`, use `/login` inside
+Pi, then `/quit`. Select the same backend/model without editing the DAG:
 
 ```bash
 ./deploy.sh --provider pi --model openai/gpt-5.6

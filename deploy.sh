@@ -78,6 +78,21 @@ BANNER
 # Step 0 — AI provider and account login
 # ============================================================
 
+# Saved selection is accepted only for unattended runs. Interactive runs ask
+# every time unless explicit flags were supplied.
+if [ -z "$PROVIDER" ] && [ ! -t 0 ] && [ -s .env ]; then
+  python3 scripts/config-file.py validate .env || fail ".env is not valid dotenv"
+  PROVIDER="$(python3 scripts/config-file.py get .env AI_PROVIDER)"
+  if [ -z "$MODEL" ]; then
+    MODEL="$(python3 scripts/config-file.py get .env AI_MODEL)"
+  fi
+fi
+
+case "$PROVIDER" in
+  ""|codex|claude|pi) ;;
+  *) fail "Unsupported AI provider '$PROVIDER'. Choose codex, claude, or pi." ;;
+esac
+
 if [ -z "$PROVIDER" ]; then
   if [ ! -t 0 ]; then
     fail "No interactive terminal. Choose an AI with --provider codex, --provider claude, or --provider pi."
@@ -100,12 +115,18 @@ if [ -z "$PROVIDER" ]; then
   done
 fi
 
-if [ "$PROVIDER" = "pi" ] && [ -z "$MODEL" ]; then
-  if [ ! -t 0 ]; then
-    fail "Pi automation requires --model backend/model."
-  fi
-  read -r -p "  Pi model (backend/model) [openai/gpt-5.6]: " MODEL
-  MODEL="${MODEL:-openai/gpt-5.6}"
+if [ -z "$MODEL" ]; then
+  case "$PROVIDER" in
+    codex) MODEL="gpt-5.6-sol" ;;
+    claude) MODEL="sonnet" ;;
+    pi)
+      if [ ! -t 0 ]; then
+        fail "Pi automation requires --model backend/model."
+      fi
+      read -r -p "  Pi model (backend/model) [openai/gpt-5.6]: " MODEL
+      MODEL="${MODEL:-openai/gpt-5.6}"
+      ;;
+  esac
 fi
 
 build_runner
@@ -121,15 +142,16 @@ if ! "${RUNNER[@]}" --check-auth; then
       ;;
     claude)
       LOGIN_LABEL="Claude"
-      LOGIN_COMMAND=(claude)
-      echo "In Claude, run /login, complete authentication, then run /exit to return here."
+      LOGIN_COMMAND=(claude auth login)
       ;;
     pi)
       LOGIN_LABEL="Pi"
-      LOGIN_COMMAND=(pi /login)
+      LOGIN_COMMAND=(pi)
+      LOGIN_GUIDANCE="In Pi, run /login, complete authentication, then run /quit to return here."
       ;;
   esac
   say "===== Connect your ${LOGIN_LABEL} account ====="
+  [ -z "${LOGIN_GUIDANCE:-}" ] || echo "$LOGIN_GUIDANCE"
   read -r -p "  Start the secure ${LOGIN_LABEL} login now? [Y/n]: " START_LOGIN
   case "${START_LOGIN:-y}" in
     y|Y|yes|YES) ;;
@@ -137,11 +159,14 @@ if ! "${RUNNER[@]}" --check-auth; then
   esac
   command -v "${LOGIN_COMMAND[0]}" >/dev/null 2>&1 || \
     fail "${LOGIN_COMMAND[0]} is not installed or not on PATH. Install it, then re-run Store Drop."
-  "${LOGIN_COMMAND[@]}"
+  "${LOGIN_COMMAND[@]}" || \
+    fail "${LOGIN_LABEL} login did not complete successfully. Fix the login error, then re-run Store Drop."
   "${RUNNER[@]}" --check-auth || \
     fail "${LOGIN_LABEL} authentication was not detected. Complete login, then re-run Store Drop."
 fi
-ok "Using your ${PROVIDER} account"
+"${RUNNER[@]}" --preflight || \
+  fail "AI runtime preflight failed. Fix the error above before Store Drop accesses WordPress."
+ok "Using your ${PROVIDER} account with ${MODEL}"
 
 # ============================================================
 # Step 1 — bridge credentials
@@ -169,9 +194,7 @@ fi
 # application-password groupings remain data and are never shell code.
 python3 scripts/config-file.py validate .env || fail ".env is not valid dotenv"
 python3 scripts/config-file.py set .env AI_PROVIDER "$PROVIDER"
-if [ -n "$MODEL" ]; then
-  python3 scripts/config-file.py set .env AI_MODEL "$MODEL"
-fi
+python3 scripts/config-file.py set .env AI_MODEL "$MODEL"
 BRIDGE_URL="$(python3 scripts/config-file.py get .env BRIDGE_URL)"
 BRIDGE_USER="$(python3 scripts/config-file.py get .env BRIDGE_USER)"
 BRIDGE_PASS="$(python3 scripts/config-file.py get .env BRIDGE_PASS)"

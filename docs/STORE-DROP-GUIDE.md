@@ -24,7 +24,9 @@ curl -fsSL https://archon.diy/install | bash
 ```
 
 Claude users can select Claude during onboarding or pass `--provider claude`.
-Other supported/OpenAI-compatible backends use Archon's Pi adapter.
+Other supported/OpenAI-compatible backends use Archon's Pi adapter. Pi login is
+performed inside its interactive terminal: run `pi`, then `/login`, and `/quit`
+after authentication.
 
 ## 3. Inspect before running
 
@@ -45,8 +47,10 @@ revealing values. Validation does not contact an AI provider or WordPress.
 ```
 
 Choose Codex, Claude, or Pi when prompted. Authentication is verified before
-Store Drop requests bridge credentials or performs site work. For automation,
-pass `--provider` (and `--model` for Pi) to avoid interactive provider choice.
+Store Drop requests bridge credentials or performs site work. The selected
+adapter executable and Archon 0.10.1+ are checked at the same boundary. For
+automation, pass `--provider` and `--model`, or save both in `.env`, to avoid
+interactive provider choice.
 
 The 49-node DAG stops on failures and can be re-run. It validates the palette,
 tagline, products, required pages, Gutenberg blocks, menus, header, footer,

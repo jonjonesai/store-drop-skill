@@ -26,8 +26,9 @@ added; the runner maps selection into Archon's provider registry.
 
 ## Adapters
 
-- `codex` is first class and the default. It uses Archon's native Codex adapter
-  and normal `codex login` or an explicitly allowlisted `OPENAI_API_KEY`.
+- `codex` is first class and is the direct-runner compatibility fallback. The
+  interactive entrypoint still asks. It uses Archon's native Codex adapter and
+  normal `codex login` or an explicitly allowlisted `OPENAI_API_KEY`.
 - `claude` uses Archon's native Claude adapter and normal Claude login or an
   explicitly allowlisted `ANTHROPIC_API_KEY`. Store Drop no longer reads
   `~/.claude/.credentials.json` or exports Claude OAuth tokens.
@@ -37,7 +38,9 @@ added; the runner maps selection into Archon's provider registry.
   `AI_COMMAND` workflow provider, so Store Drop does not invent one.
 
 Archon 0.10.1 or newer is required for the tested provider/config and dry-run
-contract.
+contract. The interactive entrypoint verifies the provider command,
+authentication, and Archon version before it reads bridge state or performs any
+WordPress mutation.
 
 ## Deterministic operations and certification
 

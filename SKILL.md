@@ -20,7 +20,9 @@ Before a deployment:
    Codex, Claude, or Pi for another supported/OpenAI-compatible backend. Do not
    silently choose for them. Pass the answer with `--provider` so the CLI does
    not ask twice. If they run the CLI directly, its onboarding prompt makes the
-   same choice and opens the provider's native login when needed.
+   same choice and opens the provider's native login when needed. Require the
+   provider adapter, authentication, and Archon version preflight to pass before
+   any bridge request or WordPress mutation.
 5. Obtain explicit authorization for the target site. A dry run or validation
    does not authorize a live deployment.
 

@@ -16,7 +16,9 @@
 
 Local execution requires Python 3, curl, Archon 0.10.1+, and one configured AI
 adapter for live AI nodes. Deterministic validation and dry-run selection do not
-require AI authentication.
+require AI authentication. A live interactive run asks which adapter to use and
+verifies its command, account authentication, and the Archon version before it
+contacts the WordPress bridge.
 
 Store Drop currently builds a branded WordPress/Kadence/WooCommerce storefront,
 safe placeholder catalog, forms, navigation, legal drafts, theme configuration,

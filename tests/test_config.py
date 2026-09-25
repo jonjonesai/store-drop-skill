@@ -1,7 +1,8 @@
 import tempfile
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from store_drop.config import ConfigError, parse_dotenv_text
 from store_drop.provider import ProviderConfig, build_child_env, describe, make_run_config, require_archon_version
@@ -37,7 +38,7 @@ export COLOR=#D42945
 
 
 class ProviderTests(unittest.TestCase):
-    def test_codex_is_default_and_claude_is_supported(self):
+    def test_direct_runner_falls_back_to_codex_and_supports_claude(self):
         self.assertEqual(ProviderConfig.resolve({}).provider, "codex")
         self.assertEqual(ProviderConfig.resolve({}, "claude").model, "sonnet")
 
@@ -45,24 +46,70 @@ class ProviderTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "unsupported AI provider"):
             ProviderConfig.resolve({}, "mystery")
 
-    def test_custom_provider_config_directories_are_detected(self):
+    def test_switching_provider_does_not_reuse_stale_model(self):
+        config = ProviderConfig.resolve(
+            {"AI_PROVIDER": "pi", "AI_MODEL": "openai/old-model"}, "claude"
+        )
+        self.assertEqual(config.provider, "claude")
+        self.assertEqual(config.model, "sonnet")
+
+    def test_saved_model_is_used_when_provider_matches(self):
+        config = ProviderConfig.resolve(
+            {"AI_PROVIDER": "claude", "AI_MODEL": "opus"}, "claude"
+        )
+        self.assertEqual(config.model, "opus")
+
+    def test_custom_pi_config_directory_is_detected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            codex_home = root / "codex"
             pi_config = root / "pi"
-            codex_home.mkdir()
             pi_config.mkdir()
-            (codex_home / "auth.json").touch()
-            (pi_config / "auth.json").touch()
-            self.assertTrue(
-                ProviderConfig("codex", "gpt-test").auth_status(
-                    {"HOME": str(root), "CODEX_HOME": str(codex_home)}
-                )[0]
+            (pi_config / "auth.json").write_text(
+                '{"openai": {"type": "api_key"}}', encoding="utf-8"
             )
             self.assertTrue(
                 ProviderConfig("pi", "openai/gpt-test").auth_status(
                     {"HOME": str(root), "PI_CONFIG_DIR": str(pi_config)}
                 )[0]
+            )
+
+    def test_pi_auth_file_must_contain_selected_backend(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            auth = root / "auth.json"
+            auth.write_text('{"anthropic": {"type": "oauth"}}', encoding="utf-8")
+            self.assertFalse(
+                ProviderConfig("pi", "openai/gpt-test").auth_status(
+                    {"HOME": str(root), "PI_CONFIG_DIR": str(root), "PATH": ""}
+                )[0]
+            )
+            self.assertTrue(
+                ProviderConfig("pi", "anthropic/claude-test").auth_status(
+                    {"HOME": str(root), "PI_CONFIG_DIR": str(root), "PATH": ""}
+                )[0]
+            )
+
+    def test_model_ids_are_validated_before_preflight(self):
+        with self.assertRaisesRegex(ConfigError, "without whitespace"):
+            ProviderConfig.resolve({}, "codex", "bad model")
+        with self.assertRaisesRegex(ConfigError, "backend/model"):
+            ProviderConfig.resolve({}, "pi", "missing-backend-separator")
+
+    @patch.object(ProviderConfig, "provider_executable", return_value="/bin/codex")
+    @patch("store_drop.provider.subprocess.run")
+    def test_codex_cli_status_is_used_without_exposing_output(self, run, _executable):
+        run.return_value = SimpleNamespace(returncode=0)
+        ready, _ = ProviderConfig("codex", "gpt-test").auth_status(
+            {"HOME": "/home/test", "PATH": "/bin"}
+        )
+        self.assertTrue(ready)
+        self.assertEqual(run.call_args.args[0], ["/bin/codex", "login", "status"])
+        self.assertTrue(run.call_args.kwargs["capture_output"])
+
+    def test_missing_provider_command_names_exact_override(self):
+        with self.assertRaisesRegex(ConfigError, "CODEX_BIN_PATH"):
+            ProviderConfig("codex", "gpt-test").require_provider_executable(
+                {"PATH": ""}
             )
 
     def test_child_environment_is_allowlisted(self):
