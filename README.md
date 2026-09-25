@@ -1,162 +1,121 @@
-# Store Drop Skill
+# Store Drop
 
-Deploy a fully branded WordPress + Kadence + WooCommerce print-on-demand store in ~15 minutes.
+Store Drop is a provider-neutral, 49-node Archon harness that builds, validates,
+and certifies a Kadence and WooCommerce storefront through Mega Kadence Bridge.
+Interactive runs ask whether to use Codex, Claude, or Archon's Pi adapter for a
+supported OpenAI-compatible backend. The selected provider uses the operator's
+own authenticated account.
 
-The deploy is run by an Archon workflow with deterministic bash validators after every step. If anything goes wrong, the workflow halts loud — your site never ends up silently broken.
+The workflow is more than a prompt: mutations are ordered and resumable,
+failures halt downstream work, deterministic validators inspect API and rendered
+state, cache failures retry, and the final JSON certificate is based on live
+read-back rather than requested values.
 
-Part of the [MEGA](https://mega.management) ecosystem alongside [Mega Kadence Bridge](https://github.com/jonjonesai/mega-kadence-bridge) (the WordPress plugin that exposes the REST API).
+## Requirements
 
-## Prerequisites
+Use Archon 0.10.1 or newer, Python 3, curl, and one AI adapter for live AI
+nodes. The required WordPress stack is Kadence Theme, Kadence Blocks,
+WooCommerce, Mega Kadence Bridge 1.4.0+, and Fluent Forms. Pro extensions,
+Rank Math, LiteSpeed, a MEGA account, payments, and fulfillment are optional or
+separate. See [the prerequisite matrix](docs/PREREQUISITES.md).
 
-A WordPress site (Hostinger or similar) with these plugins installed and active:
-
-- Kadence theme + Pro
-- Kadence Blocks + Pro
-- WooCommerce
-- [Mega Kadence Bridge](https://github.com/jonjonesai/mega-kadence-bridge/releases/latest)
-- Fluent Forms
-- Rank Math SEO
-- LiteSpeed Cache
-
-Locally:
-
-- [Claude Code](https://claude.com/claude-code) installed (`claude` on your PATH)
-- [Archon CLI](https://github.com/coleam00/Archon) installed (`archon` on your PATH)
-- This repo cloned to `~/kadence-skill/store-drop-skill`
-
-## One-time setup (do this once, ever)
-
-If you're on Windows: install WSL first.
-
-```powershell
-# In PowerShell as administrator (Windows only):
-wsl --install
-# Restart Windows. Open Ubuntu from Start menu — that's your terminal from now on.
-```
-
-Then in your unix terminal (WSL on Windows / Terminal on Mac / any shell on Linux):
+## Setup
 
 ```bash
-# Install Claude Code
-curl -fsSL https://claude.ai/install.sh | bash
-
-# Authenticate Claude Code once (opens a browser)
-claude
-# log in, then exit (Ctrl+D or type "exit")
-
-# Install Archon CLI
 curl -fsSL https://archon.diy/install | bash
-
-# Clone this repo to the expected path
-mkdir -p ~/kadence-skill
-cd ~/kadence-skill
 git clone https://github.com/jonjonesai/store-drop-skill
 cd store-drop-skill
+cp .env.example .env
+cp intake.json.example intake.json
 ```
 
-You're now in the repo. Setup is done.
+Install at least one provider CLI before the first live run:
 
-## Per-deploy (do this for each new store)
+| Choice | Install | Native login |
+|---|---|---|
+| Codex | `npm install -g @openai/codex@latest` | `codex login` |
+| Claude | `npm install -g @anthropic-ai/claude-code` | `claude auth login` |
+| Pi | `npm install -g --ignore-scripts @earendil-works/pi-coding-agent` | Run `pi`, then `/login` |
 
-### 1. Install the bridge plugin
+Paste bridge values into `.env` and edit `intake.json`. Dotenv is parsed as
+data, never sourced as shell. Application passwords containing spaces, quotes,
+hashes, or empty values are supported.
 
-Download the [latest release ZIP](https://github.com/jonjonesai/mega-kadence-bridge/releases/latest), upload via WP Admin → Plugins → Add New → Upload Plugin, activate.
+Inspect the selection without credentials or network mutation:
 
-### 2. Get bridge credentials
+```bash
+./deploy.sh --dry-run
+./deploy.sh --validate
+```
 
-In WordPress: **Settings → Mega Kadence Bridge → "Copy Environment Variables"**. The button copies a small block of text to your clipboard.
-
-### 3. Run the deploy
-
-From the repo root:
+Start an interactive run:
 
 ```bash
 ./deploy.sh
 ```
 
-The script walks you through everything — no editor required:
-
-1. **First it asks for your bridge credentials.** Paste the env block you just copied, then press `Ctrl+D` on a new line.
-2. **Then it asks 6 questions about your store** — brand name, what you sell, light or dark mode, your brand color, product categories, optional logo URL. Just type the answers as it asks.
-3. **Then it deploys.** ~15 minutes, prints `[node] Started/Completed` for each of 43 steps, ends with `DEPLOYMENT SUCCESSFUL`.
-
-Visit your site — homepage, about, contact, shop, and 3 legal pages, all live.
-
-### Re-running
-
-`./deploy.sh` is idempotent — running it again with no changes won't break anything. To change your answers:
-
-- `./deploy.sh --intake` — re-prompts the 6 store questions, keeps your bridge creds
-- `./deploy.sh --reset` — re-prompts everything from scratch
-
-## Tweaking after the deploy
-
-Any change you want — a new headline, swap an image, add a section — just ask Claude one-off:
+Store Drop asks which AI to use. If that provider is not authenticated, it
+offers to open the provider's native, secure login before collecting WordPress
+credentials or changing the site. It also verifies the selected adapter and
+Archon 0.10.1+ before any WordPress access. For an explicit or automated Codex
+run:
 
 ```bash
-claude
+./deploy.sh --provider codex --model gpt-5.6-sol
 ```
 
-Then in plain English:
+Run the backward-compatible Claude adapter:
 
-> On cutemerch.love, change the homepage headline to "Cute Merch For Everyone".
-
-> Add a customer-reviews section above the footer.
-
-> Replace the hero image with this one: https://cdn.example.com/new-hero.jpg.
-
-Claude uses the bridge directly for one-off edits — no workflow run needed.
-
-## How the harness works
-
-The deploy is a 43-node DAG. Most nodes are deterministic bash; a few are AI sessions for things that need judgment (page copy generation). After every state-changing node, a validator hits the live site and checks the change actually took effect. If it didn't, the workflow halts loud — failure is impossible to ship.
-
-Major validation gates:
-
-| Gate | Catches |
-|---|---|
-| `check-palette` | Palette actually applied |
-| `check-products` | 4+ products exist |
-| `check-homepage`, `check-about`, `check-contact`, `check-legal-pages` | Each page renders 200 with required markup |
-| `check-no-block-warnings` | Zero "Attempt Block Recovery" warnings |
-| `check-menus`, `check-header-config`, `check-footer-config` | Header/footer/nav structurally correct |
-| `check-body-text-color`, `check-logo-color`, `check-hero-padding`, `check-drawer-colors` | Dark-mode CSS rules actually present in rendered HTML |
-| `final-check` | All 7 site URLs return 200 |
-
-The last 4 are the dark-mode failure modes that used to require Claude to remember 11+ gotchas across 300 lines of doc. Now they're enforced by bash.
-
-## Troubleshooting
-
-- **Workflow halts with `FAIL: ...`** — read the message. It tells you exactly which step failed and why. Fix the underlying issue and re-run; the deploy is idempotent (existing pages/menus/products are detected and reused).
-- **`OAuth token expired`** — run `claude` once to refresh.
-- **`Bridge not reachable`** — confirm the URL in `.env`, that the plugin is active, and that app passwords are enabled in WP.
-- **Site still looks broken visually** — that shouldn't happen, every visual concern is enforced by deterministic validators. If something does slip through, open an issue with the rendered HTML attached.
-
-## Repository layout
-
+```bash
+claude auth login
+./deploy.sh --provider claude --model sonnet
 ```
-.archon/
-├── workflows/deploy-pod-store.yaml    # The 43-node DAG
-├── commands/                          # 7 atomic AI command files
-├── lib/                               # Shared bash (bridge, chrome, dark-mode-css, ...)
-└── scripts/run-archon.sh              # OAuth wrapper for Archon
-boilerplate/                           # Legal page text templates
-references/                            # Tone/font pairings, gotchas, API ref
-recipes/                               # Per-page deploy recipes (kept for reference)
-templates/                             # Golden HTML for home/about/contact pages
-intake.json.example                    # Copy + edit
-.env.example                           # Copy + edit
-SKILL.md                               # Old monolithic skill — kept for one-off Claude edits
+
+For an OpenAI-compatible backend supported by Pi, run `pi`, use `/login` inside
+Pi, then `/quit`. Select the same backend/model without editing the DAG:
+
+```bash
+./deploy.sh --provider pi --model openai/gpt-5.6
 ```
+
+Archon does not currently expose a safe arbitrary-command provider contract, so
+Store Drop intentionally does not advertise an unsupported `AI_COMMAND` mode.
+
+## Safety defaults
+
+- Placeholder products derive names from the requested taxonomy and remain
+  draft/private/out of stock.
+- Sales require explicit `launch.enable_sales` and `launch.approved_by` intake.
+- Unconfirmed shipping, returns, guarantees, donation impact, organization
+  claims, production times, and service levels remain visible drafts.
+- Visible demo form titles and unsafe placeholders block certification.
+- AI subprocesses receive an explicit environment allowlist. Secrets are not
+  placed in prompts, logs, command arguments, reports, or snapshots.
+
+A build may complete while launch certification remains false. That is the
+expected result when legal drafts or launch approval remain unresolved.
+
+## Architecture and scope
+
+See [architecture](docs/ARCHITECTURE.md) for the portable core, provider
+contract, adapters, and deterministic boundary. Store Drop builds the
+storefront; automatic MEGA product-generator credential handoff remains an
+unfinished Phase 2 item. Mega Kadence Bridge is a WordPress control plane, not
+the product generator.
+
+## Validation
+
+```bash
+python3 -m unittest discover -s tests -v
+archon validate workflows deploy-pod-store
+archon validate commands
+./deploy.sh --archon-dry-run
+```
+
+The last command exercises Archon's DAG simulation and does not contact an AI
+provider or WordPress site. A real deployment writes `final-report.json` to the
+Archon artifacts directory after checking all seven required URLs.
 
 ## License
 
 GPL v2 or later. See [LICENSE](LICENSE).
-
-## Contributing
-
-Issues and PRs welcome at [github.com/jonjonesai/store-drop-skill](https://github.com/jonjonesai/store-drop-skill).
-
----
-
-Built by [Jon Jones](https://github.com/jonjonesai) with Claude Code.

@@ -1,6 +1,6 @@
 # MEGA Store — Student Intake
 
-Students paste the setup block below into Claude on Day 1. Claude reads it, asks the 6 questions one at a time, then builds everything.
+Operators use this intake with the selected Store Drop agent. The agent asks the six core questions, records facts and launch approval separately, then builds.
 
 ---
 
@@ -18,7 +18,7 @@ My .env file is in this project folder with my bridge credentials.
 
 ---
 
-## Claude's 6-Question Flow
+## Agent 6-Question Flow
 
 Ask these in order. Wait for each answer before asking the next. Keep it conversational, not robotic.
 
@@ -62,26 +62,30 @@ Ask these in order. Wait for each answer before asking the next. Keep it convers
 
 ---
 
-## After All 6 Answers -- Claude Executes
+## After All 6 Answers -- The Agent Executes
 
-Once you have all answers, execute `deploy-pod-store.md` without asking for permission between steps. The student already gave you everything you need.
+After the six design answers, record confirmed facts, approved policies, and
+launch approval separately. Missing policy text remains a visible draft;
+`launch.enable_sales` defaults to false. Then run the provider-neutral Archon
+workflow with `./deploy.sh`.
 
 1. Apply palette (set-palette recipe)
 2. Apply fonts by tone (set-fonts-by-tone recipe, inferred from niche)
 3. Create WC product categories from Q5 answers
-4. Create 4 placeholder products if none exist
+4. Create 4 category-aware, non-purchasable placeholder products if none exist
 5. Build the 7-section homepage (deploy-homepage recipe)
 6. Build About page (deploy-about recipe)
 7. Build Contact page (deploy-contact recipe)
-8. Generate 4 legal pages (deploy-legal-pages recipe)
+8. Generate prelaunch legal drafts unless approved policy text was supplied
 9. Wire primary + footer nav menus (build-nav-menus recipe)
 10. Set homepage as front page
 11. Upload logo if provided
 12. Flush all caches
 13. Verify every page via /render
-14. Print final summary
+14. Write a final certificate from API and rendered read-back state
 
-**Student gets a live branded store. Target time: under 15 minutes.**
+The operator gets a verified storefront build. Sales launch remains blocked
+until the certificate reports `launch.certified: true`.
 
 ---
 

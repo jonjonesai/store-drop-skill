@@ -199,7 +199,7 @@ Content MUST NOT end with an empty paragraph. Strip `<!-- wp:paragraph --><p></p
 }
 ```
 
-### kadence/productcarousel (requires Kadence Blocks Pro)
+### kadence/productcarousel (optional; requires Kadence Blocks Pro)
 
 ```json
 {

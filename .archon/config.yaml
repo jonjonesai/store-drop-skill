@@ -1,6 +1,8 @@
-# Archon configuration for Store Drop Skill
-# See: https://archon.diy/getting-started/overview/
-
+# Provider defaults only. scripts/run-store-drop.py selects one per run.
 assistants:
+  codex:
+    model: gpt-5.6-sol
   claude:
     model: sonnet
+  pi:
+    model: openai/gpt-5.6

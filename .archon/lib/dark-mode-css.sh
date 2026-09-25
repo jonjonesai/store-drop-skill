@@ -133,8 +133,7 @@ inject_mode_css() {
     css="$(build_light_css_bundle)"
   fi
   payload=$(python3 -c 'import json,sys;print(json.dumps({"css":sys.stdin.read()}))' <<<"$css")
-  bridge_post "/css" "$payload" >/dev/null
-  bridge_flush_cache
+  bridge_mutate "/css" "$payload" "/css" >/dev/null
 }
 
 # Apply dark-mode background theme_mods. No-op for light mode.

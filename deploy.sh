@@ -7,21 +7,55 @@
 #   ./deploy.sh --reset      # re-prompt even if .env / intake.json exist
 #   ./deploy.sh --intake     # only refresh intake.json, keep .env
 #
-# Pre-requisites (one-time setup, see README): WSL (if Windows), Claude Code,
-# Archon CLI, this repo cloned to ~/kadence-skill/store-drop-skill.
+# Pre-requisites: Archon CLI plus Codex, Claude, or Pi. Interactive runs ask
+# which provider to use and open its native login flow when authentication is
+# missing. Explicit --provider/--model flags keep automated runs non-interactive.
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
 RESET_ENV=0
 RESET_INTAKE=0
-case "${1:-}" in
-  --reset) RESET_ENV=1; RESET_INTAKE=1 ;;
-  --intake) RESET_INTAKE=1 ;;
-  --help|-h)
-    sed -n '2,12p' "$0" | sed 's/^# //'
-    exit 0 ;;
-esac
+PROVIDER=""
+MODEL=""
+DRY_RUN=0
+ARCHON_DRY_RUN=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --reset) RESET_ENV=1; RESET_INTAKE=1 ;;
+    --intake) RESET_INTAKE=1 ;;
+    --provider) shift; PROVIDER="${1:?--provider requires codex, claude, or pi}" ;;
+    --model) shift; MODEL="${1:?--model requires a model id}" ;;
+    --dry-run) DRY_RUN=1 ;;
+    --archon-dry-run) ARCHON_DRY_RUN=1 ;;
+    --validate)
+      python3 -m unittest discover -s tests -v
+      archon validate workflows deploy-pod-store
+      archon validate commands
+      exit 0 ;;
+    --help|-h)
+      sed -n '2,16p' "$0" | sed 's/^# //'
+      exit 0 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+build_runner() {
+  RUNNER=(python3 scripts/run-store-drop.py)
+  [ -z "$PROVIDER" ] || RUNNER+=(--provider "$PROVIDER")
+  [ -z "$MODEL" ] || RUNNER+=(--model "$MODEL")
+}
+
+build_runner
+if [ "$DRY_RUN" = 1 ]; then
+  "${RUNNER[@]}" --dry-run
+  exit $?
+fi
+if [ "$ARCHON_DRY_RUN" = 1 ]; then
+  "${RUNNER[@]}" --archon-dry-run
+  exit $?
+fi
 
 # $'...' makes bash interpret the escape sequences (vs. literal backslashes)
 GREEN=$'\033[0;32m'; CYAN=$'\033[0;36m'; YELLOW=$'\033[0;33m'; RED=$'\033[0;31m'; BOLD=$'\033[1m'; NC=$'\033[0m'
@@ -39,6 +73,100 @@ of interactive prompts up front, then ~15 min of automated build.
 Press Ctrl+C anytime to cancel.
 
 BANNER
+
+# ============================================================
+# Step 0 — AI provider and account login
+# ============================================================
+
+# Saved selection is accepted only for unattended runs. Interactive runs ask
+# every time unless explicit flags were supplied.
+if [ -z "$PROVIDER" ] && [ ! -t 0 ] && [ -s .env ]; then
+  python3 scripts/config-file.py validate .env || fail ".env is not valid dotenv"
+  PROVIDER="$(python3 scripts/config-file.py get .env AI_PROVIDER)"
+  if [ -z "$MODEL" ]; then
+    MODEL="$(python3 scripts/config-file.py get .env AI_MODEL)"
+  fi
+fi
+
+case "$PROVIDER" in
+  ""|codex|claude|pi) ;;
+  *) fail "Unsupported AI provider '$PROVIDER'. Choose codex, claude, or pi." ;;
+esac
+
+if [ -z "$PROVIDER" ]; then
+  if [ ! -t 0 ]; then
+    fail "No interactive terminal. Choose an AI with --provider codex, --provider claude, or --provider pi."
+  fi
+
+  echo
+  say "===== Choose your AI ====="
+  echo "Store Drop can use your own account with any supported provider:"
+  echo "  1) Codex (OpenAI)"
+  echo "  2) Claude (Anthropic)"
+  echo "  3) Pi (other supported or OpenAI-compatible models)"
+  while true; do
+    read -r -p "  Choose 1, 2, or 3: " PROVIDER_CHOICE
+    case "$PROVIDER_CHOICE" in
+      1|codex) PROVIDER="codex"; break ;;
+      2|claude) PROVIDER="claude"; break ;;
+      3|pi) PROVIDER="pi"; break ;;
+      *) warn "Please choose 1, 2, or 3." ;;
+    esac
+  done
+fi
+
+if [ -z "$MODEL" ]; then
+  case "$PROVIDER" in
+    codex) MODEL="gpt-5.6-sol" ;;
+    claude) MODEL="sonnet" ;;
+    pi)
+      if [ ! -t 0 ]; then
+        fail "Pi automation requires --model backend/model."
+      fi
+      read -r -p "  Pi model (backend/model) [openai/gpt-5.6]: " MODEL
+      MODEL="${MODEL:-openai/gpt-5.6}"
+      ;;
+  esac
+fi
+
+build_runner
+if ! "${RUNNER[@]}" --check-auth; then
+  echo
+  if [ ! -t 0 ]; then
+    fail "The selected provider is not authenticated. Log in interactively, then re-run this command."
+  fi
+  case "$PROVIDER" in
+    codex)
+      LOGIN_LABEL="Codex"
+      LOGIN_COMMAND=(codex login)
+      ;;
+    claude)
+      LOGIN_LABEL="Claude"
+      LOGIN_COMMAND=(claude auth login)
+      ;;
+    pi)
+      LOGIN_LABEL="Pi"
+      LOGIN_COMMAND=(pi)
+      LOGIN_GUIDANCE="In Pi, run /login, complete authentication, then run /quit to return here."
+      ;;
+  esac
+  say "===== Connect your ${LOGIN_LABEL} account ====="
+  [ -z "${LOGIN_GUIDANCE:-}" ] || echo "$LOGIN_GUIDANCE"
+  read -r -p "  Start the secure ${LOGIN_LABEL} login now? [Y/n]: " START_LOGIN
+  case "${START_LOGIN:-y}" in
+    y|Y|yes|YES) ;;
+    *) fail "Login is required before deployment. Re-run when you are ready." ;;
+  esac
+  command -v "${LOGIN_COMMAND[0]}" >/dev/null 2>&1 || \
+    fail "${LOGIN_COMMAND[0]} is not installed or not on PATH. Install it, then re-run Store Drop."
+  "${LOGIN_COMMAND[@]}" || \
+    fail "${LOGIN_LABEL} login did not complete successfully. Fix the login error, then re-run Store Drop."
+  "${RUNNER[@]}" --check-auth || \
+    fail "${LOGIN_LABEL} authentication was not detected. Complete login, then re-run Store Drop."
+fi
+"${RUNNER[@]}" --preflight || \
+  fail "AI runtime preflight failed. Fix the error above before Store Drop accesses WordPress."
+ok "Using your ${PROVIDER} account with ${MODEL}"
 
 # ============================================================
 # Step 1 — bridge credentials
@@ -62,10 +190,19 @@ else
   ok "Using existing .env (run with --reset to re-enter)"
 fi
 
-# Quick sanity: source the .env and try /info
-set -a; . ./.env; set +a
-: "${BRIDGE_USER:=claude-bot}"
-INFO="$(curl -s --max-time 10 "${BRIDGE_URL}/info" -u "${BRIDGE_USER}:${BRIDGE_PASS}" || true)"
+# Parse, never source, dotenv. Values containing spaces, quotes, hashes, or
+# application-password groupings remain data and are never shell code.
+python3 scripts/config-file.py validate .env || fail ".env is not valid dotenv"
+python3 scripts/config-file.py set .env AI_PROVIDER "$PROVIDER"
+python3 scripts/config-file.py set .env AI_MODEL "$MODEL"
+BRIDGE_URL="$(python3 scripts/config-file.py get .env BRIDGE_URL)"
+BRIDGE_USER="$(python3 scripts/config-file.py get .env BRIDGE_USER)"
+BRIDGE_PASS="$(python3 scripts/config-file.py get .env BRIDGE_PASS)"
+BRIDGE_SITE="$(python3 scripts/config-file.py get .env BRIDGE_SITE)"
+: "${BRIDGE_USER:=store-drop-agent}"
+export BRIDGE_URL BRIDGE_USER BRIDGE_PASS BRIDGE_SITE
+source .archon/lib/bridge.sh
+INFO="$(bridge_get "/info" || true)"
 if ! printf '%s' "$INFO" | grep -q '"success":true'; then
   fail "Could not reach bridge at $BRIDGE_URL. Check that the plugin is active and your credentials are correct."
 fi
@@ -85,10 +222,7 @@ if [ "$RESET_ENV" = 1 ] || ! grep -q '^STORE_DROP_TOKEN=' .env 2>/dev/null; then
   echo "Leave blank only if your site already has the premium stack installed."
   read -r -p "  Token: " SDT
   if [ -n "$SDT" ]; then
-    # replace any existing line, then append
-    grep -v '^STORE_DROP_TOKEN=' .env > .env.tmp 2>/dev/null || true
-    mv -f .env.tmp .env 2>/dev/null || true
-    printf 'STORE_DROP_TOKEN=%s\n' "$SDT" >> .env
+    python3 scripts/config-file.py set .env STORE_DROP_TOKEN "$SDT"
     ok "Token saved"
   fi
 fi
@@ -190,6 +324,14 @@ data = {
   'color': os.environ['COLOR'],
   'categories': os.environ['CATEGORIES'],
   'logo': os.environ['LOGO'],
+  'facts': {
+    'confirmed_organization_facts': [],
+    'approved_policies': {
+      'shipping': '', 'returns': '', 'guarantee': '',
+      'donation_impact': '', 'service_levels': '',
+    },
+  },
+  'launch': {'enable_sales': False, 'approved_by': ''},
 }
 print(json.dumps(data, indent=2))
 " > intake.json
@@ -210,10 +352,4 @@ echo "Running the Archon workflow. Takes about 15 minutes."
 echo "You'll see [node] Started/Completed lines as it progresses."
 echo
 
-# Filter cosmetic 'claude.rate_limit_event' log lines from Archon's stdout.
-# These are billing-tier display warnings (mismatch between Pro tier rate limit
-# and PAYG overage), purely cosmetic, but they read as broken to a fresh student.
-# Suppressing them keeps the on-screen scroll focused on actual workflow events.
-set -o pipefail
-./.archon/scripts/run-archon.sh workflow run deploy-pod-store 2>&1 \
-  | grep --line-buffered -v -E '"claude\.rate_limit_event"|"out_of_credits"'
+"${RUNNER[@]}"

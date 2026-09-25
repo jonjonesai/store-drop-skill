@@ -19,14 +19,14 @@ customer never does the manual connect.
 
 ## Workstream 2 — Premium plugin bucket expansion
 Add more licensed plugins to R2 so the drop installs a fuller pro stack. Jon owns
-the licenses (unlimited-site tiers); Claude wires the install + delivery.
-- [x] **Rank Math Pro** — in the bucket as `plugins/seo-by-rank-math-pro-3.0.115.zip` (slug `seo-by-rank-math-pro`, sha256 `faa6c84f8d2743050ace0150d1a66cfe0aa2f8be7a981aa6600b6f4256aa37be`). Free `seo-by-rank-math` already installs; Pro layers on top (needs free active first). **Claude wiring in progress:** `premium-manifest.json` + MEGA `store_drop_delivery.PREMIUM_ARTIFACTS` + `install-stack.sh` activation order.
-- [ ] **Fluent Affiliate** — let customers run an affiliate program out of the box (fits the Fluent stack already bundled: FluentForms + FluentCRM). Jon: drop the zip in R2 + ping; Claude wires it.
-- [ ] Others — TBD; the bucket + manifest pattern is now repeatable, so each new licensed plugin is just: Jon buckets the zip → Claude adds the manifest entry + install step.
+the licenses (unlimited-site tiers); the operator wires the install + delivery.
+- [x] **Rank Math Pro** — in the bucket as `plugins/seo-by-rank-math-pro-3.0.115.zip` (slug `seo-by-rank-math-pro`, sha256 `faa6c84f8d2743050ace0150d1a66cfe0aa2f8be7a981aa6600b6f4256aa37be`). Free `seo-by-rank-math` already installs; Pro layers on top (needs free active first). **adapter wiring in progress:** `premium-manifest.json` + MEGA `store_drop_delivery.PREMIUM_ARTIFACTS` + `install-stack.sh` activation order.
+- [ ] **Fluent Affiliate** — let customers run an affiliate program out of the box (fits the Fluent stack already bundled: FluentForms + FluentCRM). Jon: drop the zip in R2 + ping; the operator wires it.
+- [ ] Others — TBD; the bucket + manifest pattern is now repeatable, so each new licensed plugin is just: Jon buckets the zip → the operator adds the manifest entry + install step.
 
 ## Workstream 3 — Optimal store settings (Jon's expertise → automated)
 The ideal WooCommerce / WordPress / Rank Math configuration a fresh store should
-ship with. **Jon fills this from experience; Claude builds each into the workflow
+ship with. **Jon fills this from experience; the operator builds each into the workflow
 as a deterministic bridge call.** Seed list below — expand freely:
 
 ### WordPress core
@@ -62,7 +62,7 @@ as a deterministic bridge call.** Seed list below — expand freely:
 ---
 
 ## How we work this
-Jon dumps the settings he knows are optimal; Claude turns each into a deterministic
+Jon dumps the settings he knows are optimal; the operator turns each into a deterministic
 step in `deploy-pod-store.yaml` (bridge `/option/*`, `/theme-mod/*`, or `/wp-eval`),
 verifies it on a real build, and checks the box. Same discipline as Phase 1:
 fixed in the skill, verified, documented. See [feedback: lock flagged problems in].
