@@ -13,7 +13,9 @@ the storefront.
 
 ## 2. Prepare a runtime
 
-Install Archon 0.10.1+ and one supported adapter. Codex is the default:
+Install Archon 0.10.1+ and at least one supported adapter. Interactive Store
+Drop runs ask which provider account to use and offer its native login when
+needed. For example, to install Codex:
 
 ```bash
 npm install -g @openai/codex
@@ -21,7 +23,7 @@ codex login
 curl -fsSL https://archon.diy/install | bash
 ```
 
-Claude users may authenticate with `claude` and select `--provider claude`.
+Claude users can select Claude during onboarding or pass `--provider claude`.
 Other supported/OpenAI-compatible backends use Archon's Pi adapter.
 
 ## 3. Inspect before running
@@ -41,6 +43,10 @@ revealing values. Validation does not contact an AI provider or WordPress.
 ```bash
 ./deploy.sh
 ```
+
+Choose Codex, Claude, or Pi when prompted. Authentication is verified before
+Store Drop requests bridge credentials or performs site work. For automation,
+pass `--provider` (and `--model` for Pi) to avoid interactive provider choice.
 
 The 49-node DAG stops on failures and can be re-run. It validates the palette,
 tagline, products, required pages, Gutenberg blocks, menus, header, footer,

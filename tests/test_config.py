@@ -45,6 +45,26 @@ class ProviderTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "unsupported AI provider"):
             ProviderConfig.resolve({}, "mystery")
 
+    def test_custom_provider_config_directories_are_detected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            codex_home = root / "codex"
+            pi_config = root / "pi"
+            codex_home.mkdir()
+            pi_config.mkdir()
+            (codex_home / "auth.json").touch()
+            (pi_config / "auth.json").touch()
+            self.assertTrue(
+                ProviderConfig("codex", "gpt-test").auth_status(
+                    {"HOME": str(root), "CODEX_HOME": str(codex_home)}
+                )[0]
+            )
+            self.assertTrue(
+                ProviderConfig("pi", "openai/gpt-test").auth_status(
+                    {"HOME": str(root), "PI_CONFIG_DIR": str(pi_config)}
+                )[0]
+            )
+
     def test_child_environment_is_allowlisted(self):
         env = {
             "HOME": "/home/test",

@@ -2,8 +2,9 @@
 
 Store Drop is a provider-neutral, 49-node Archon harness that builds, validates,
 and certifies a Kadence and WooCommerce storefront through Mega Kadence Bridge.
-Codex is the default AI runtime. Claude remains supported, and Archon's Pi
-adapter covers supported OpenAI-compatible backends.
+Interactive runs ask whether to use Codex, Claude, or Archon's Pi adapter for a
+supported OpenAI-compatible backend. The selected provider uses the operator's
+own authenticated account.
 
 The workflow is more than a prompt: mutations are ordered and resumable,
 failures halt downstream work, deterministic validators inspect API and rendered
@@ -18,11 +19,9 @@ WooCommerce, Mega Kadence Bridge 1.4.0+, and Fluent Forms. Pro extensions,
 Rank Math, LiteSpeed, a MEGA account, payments, and fulfillment are optional or
 separate. See [the prerequisite matrix](docs/PREREQUISITES.md).
 
-## Codex setup
+## Setup
 
 ```bash
-npm install -g @openai/codex
-codex login
 curl -fsSL https://archon.diy/install | bash
 git clone https://github.com/jonjonesai/store-drop-skill
 cd store-drop-skill
@@ -41,11 +40,17 @@ Inspect the selection without credentials or network mutation:
 ./deploy.sh --validate
 ```
 
-Run with Codex:
+Start an interactive run:
 
 ```bash
 ./deploy.sh
-# equivalent explicit selection
+```
+
+Store Drop asks which AI to use. If that provider is not authenticated, it
+offers to open the provider's native, secure login before collecting WordPress
+credentials or changing the site. For an explicit or automated Codex run:
+
+```bash
 ./deploy.sh --provider codex --model gpt-5.6-sol
 ```
 

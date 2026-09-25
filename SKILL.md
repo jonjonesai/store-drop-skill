@@ -5,9 +5,8 @@ description: Build, validate, and certify a Kadence and WooCommerce storefront t
 
 # Store Drop
 
-Store Drop is a 49-node Archon deployment and certification harness. Codex is
-the default runtime; provider selection is a runner concern, not part of the
-portable workflow.
+Store Drop is a 49-node Archon deployment and certification harness. The
+portable workflow is provider-neutral.
 
 Before a deployment:
 
@@ -17,15 +16,20 @@ Before a deployment:
    theme, blocks, and WooCommerce components. Treat Pro extensions as optional.
 3. Read [editorial safety](references/editorial-safety.md) before generating
    copy or policies.
-4. Obtain explicit authorization for the target site. A dry run or validation
+4. Before a live deployment, ask which AI account the user wants to use:
+   Codex, Claude, or Pi for another supported/OpenAI-compatible backend. Do not
+   silently choose for them. Pass the answer with `--provider` so the CLI does
+   not ask twice. If they run the CLI directly, its onboarding prompt makes the
+   same choice and opens the provider's native login when needed.
+5. Obtain explicit authorization for the target site. A dry run or validation
    does not authorize a live deployment.
 
 Run `./deploy.sh --dry-run` to inspect the selected provider/model and missing
 requirements without contacting an AI provider or a WordPress site. Run
-`./deploy.sh --validate` for deterministic repository checks. A real deployment
-uses `./deploy.sh` and defaults to Codex; `--provider claude` preserves the
-Claude adapter and `--provider pi --model <backend/model>` supports Archon's Pi
-and OpenAI-compatible backends.
+`./deploy.sh --validate` for deterministic repository checks. A real interactive
+deployment uses `./deploy.sh`, asks which provider account to use, and checks
+login before touching WordPress. `--provider codex`, `--provider claude`, or
+`--provider pi --model <backend/model>` makes the selection explicitly.
 
 Never source `.env`. The runner parses it as data and passes only the documented
 allowlist. Never print credentials or put them in prompts, arguments, reports,

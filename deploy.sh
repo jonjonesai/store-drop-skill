@@ -7,8 +7,9 @@
 #   ./deploy.sh --reset      # re-prompt even if .env / intake.json exist
 #   ./deploy.sh --intake     # only refresh intake.json, keep .env
 #
-# Pre-requisites: Archon CLI plus the selected provider. Codex is the default;
-# Claude and Pi remain supported adapters.
+# Pre-requisites: Archon CLI plus Codex, Claude, or Pi. Interactive runs ask
+# which provider to use and open its native login flow when authentication is
+# missing. Explicit --provider/--model flags keep automated runs non-interactive.
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -40,9 +41,13 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-RUNNER=(python3 scripts/run-store-drop.py)
-[ -z "$PROVIDER" ] || RUNNER+=(--provider "$PROVIDER")
-[ -z "$MODEL" ] || RUNNER+=(--model "$MODEL")
+build_runner() {
+  RUNNER=(python3 scripts/run-store-drop.py)
+  [ -z "$PROVIDER" ] || RUNNER+=(--provider "$PROVIDER")
+  [ -z "$MODEL" ] || RUNNER+=(--model "$MODEL")
+}
+
+build_runner
 if [ "$DRY_RUN" = 1 ]; then
   "${RUNNER[@]}" --dry-run
   exit $?
@@ -70,6 +75,75 @@ Press Ctrl+C anytime to cancel.
 BANNER
 
 # ============================================================
+# Step 0 — AI provider and account login
+# ============================================================
+
+if [ -z "$PROVIDER" ]; then
+  if [ ! -t 0 ]; then
+    fail "No interactive terminal. Choose an AI with --provider codex, --provider claude, or --provider pi."
+  fi
+
+  echo
+  say "===== Choose your AI ====="
+  echo "Store Drop can use your own account with any supported provider:"
+  echo "  1) Codex (OpenAI)"
+  echo "  2) Claude (Anthropic)"
+  echo "  3) Pi (other supported or OpenAI-compatible models)"
+  while true; do
+    read -r -p "  Choose 1, 2, or 3: " PROVIDER_CHOICE
+    case "$PROVIDER_CHOICE" in
+      1|codex) PROVIDER="codex"; break ;;
+      2|claude) PROVIDER="claude"; break ;;
+      3|pi) PROVIDER="pi"; break ;;
+      *) warn "Please choose 1, 2, or 3." ;;
+    esac
+  done
+fi
+
+if [ "$PROVIDER" = "pi" ] && [ -z "$MODEL" ]; then
+  if [ ! -t 0 ]; then
+    fail "Pi automation requires --model backend/model."
+  fi
+  read -r -p "  Pi model (backend/model) [openai/gpt-5.6]: " MODEL
+  MODEL="${MODEL:-openai/gpt-5.6}"
+fi
+
+build_runner
+if ! "${RUNNER[@]}" --check-auth; then
+  echo
+  if [ ! -t 0 ]; then
+    fail "The selected provider is not authenticated. Log in interactively, then re-run this command."
+  fi
+  case "$PROVIDER" in
+    codex)
+      LOGIN_LABEL="Codex"
+      LOGIN_COMMAND=(codex login)
+      ;;
+    claude)
+      LOGIN_LABEL="Claude"
+      LOGIN_COMMAND=(claude)
+      echo "In Claude, run /login, complete authentication, then run /exit to return here."
+      ;;
+    pi)
+      LOGIN_LABEL="Pi"
+      LOGIN_COMMAND=(pi /login)
+      ;;
+  esac
+  say "===== Connect your ${LOGIN_LABEL} account ====="
+  read -r -p "  Start the secure ${LOGIN_LABEL} login now? [Y/n]: " START_LOGIN
+  case "${START_LOGIN:-y}" in
+    y|Y|yes|YES) ;;
+    *) fail "Login is required before deployment. Re-run when you are ready." ;;
+  esac
+  command -v "${LOGIN_COMMAND[0]}" >/dev/null 2>&1 || \
+    fail "${LOGIN_COMMAND[0]} is not installed or not on PATH. Install it, then re-run Store Drop."
+  "${LOGIN_COMMAND[@]}"
+  "${RUNNER[@]}" --check-auth || \
+    fail "${LOGIN_LABEL} authentication was not detected. Complete login, then re-run Store Drop."
+fi
+ok "Using your ${PROVIDER} account"
+
+# ============================================================
 # Step 1 — bridge credentials
 # ============================================================
 
@@ -94,6 +168,10 @@ fi
 # Parse, never source, dotenv. Values containing spaces, quotes, hashes, or
 # application-password groupings remain data and are never shell code.
 python3 scripts/config-file.py validate .env || fail ".env is not valid dotenv"
+python3 scripts/config-file.py set .env AI_PROVIDER "$PROVIDER"
+if [ -n "$MODEL" ]; then
+  python3 scripts/config-file.py set .env AI_MODEL "$MODEL"
+fi
 BRIDGE_URL="$(python3 scripts/config-file.py get .env BRIDGE_URL)"
 BRIDGE_USER="$(python3 scripts/config-file.py get .env BRIDGE_USER)"
 BRIDGE_PASS="$(python3 scripts/config-file.py get .env BRIDGE_PASS)"

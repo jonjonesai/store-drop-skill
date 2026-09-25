@@ -18,7 +18,9 @@ allowlisted environment, Archon's normal exit status, and provider diagnostics.
 Command files constrain side effects and artifact formats. Deterministic nodes
 consume structured JSON artifacts rather than parsing conversational prose.
 
-Precedence is CLI `--provider/--model`, then `AI_PROVIDER/AI_MODEL`, then Codex
+The interactive entrypoint asks the operator which provider account to use.
+For direct runner and automation use, precedence is CLI `--provider/--model`,
+then `AI_PROVIDER/AI_MODEL`, then the backward-compatible Codex runner fallback
 with `gpt-5.6-sol`. The checked-in workflow never changes when a provider is
 added; the runner maps selection into Archon's provider registry.
 

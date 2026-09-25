@@ -22,6 +22,7 @@ def main() -> int:
     parser.add_argument("--archon-command")
     parser.add_argument("--env-file", default=str(ROOT / ".env"))
     parser.add_argument("--dry-run", action="store_true", help="show selection and requirements only")
+    parser.add_argument("--check-auth", action="store_true", help="verify the selected provider login only")
     parser.add_argument("--archon-dry-run", action="store_true", help="validate DAG control flow without providers or site writes")
     args = parser.parse_args()
     try:
@@ -30,6 +31,11 @@ def main() -> int:
         config = ProviderConfig.resolve(selection_env, args.provider, args.model, args.archon_command)
         print(describe(config, {**dotenv, **os.environ}, dotenv))
         if args.dry_run:
+            return 0
+        if args.check_auth:
+            authenticated, message = config.auth_status({**dotenv, **os.environ})
+            if not authenticated:
+                raise ConfigError(message)
             return 0
         extra = ("--dry-run", "--default-stubs") if args.archon_dry_run else ()
         return run_archon(ROOT, config, dotenv, extra_args=extra, check_auth=not args.archon_dry_run)

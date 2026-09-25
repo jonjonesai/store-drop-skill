@@ -86,7 +86,8 @@ class ProviderConfig:
     def auth_status(self, environ: Mapping[str, str]) -> tuple[bool, str]:
         home = Path(environ.get("HOME", ""))
         if self.provider == "codex":
-            if environ.get("OPENAI_API_KEY") or (home / ".codex" / "auth.json").is_file():
+            codex_home = Path(environ.get("CODEX_HOME", home / ".codex"))
+            if environ.get("OPENAI_API_KEY") or (codex_home / "auth.json").is_file():
                 return True, "Codex authentication found"
             return False, "Codex authentication missing; run `codex login` or set OPENAI_API_KEY"
         if self.provider == "claude":
@@ -97,7 +98,8 @@ class ProviderConfig:
         key = {"GOOGLE": "GEMINI_API_KEY", "HUGGINGFACE": "HF_TOKEN"}.get(
             model_backend, f"{model_backend}_API_KEY"
         )
-        if environ.get(key) or (home / ".pi" / "agent" / "auth.json").is_file():
+        pi_config = Path(environ.get("PI_CONFIG_DIR", home / ".pi" / "agent"))
+        if environ.get(key) or (pi_config / "auth.json").is_file():
             return True, f"Pi authentication found for {self.model}"
         return False, f"Pi authentication missing; run `pi /login` or set {key}"
 
