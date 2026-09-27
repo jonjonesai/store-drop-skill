@@ -20,8 +20,12 @@ Save returned category IDs.
 ### 2. Check existing products
 
 ```
-GET /woo/products
+GET /woo/products?status=any
 ```
+
+`status=any` is required: without it the bridge returns only published
+products, so draft placeholders from a previous run would be invisible and
+duplicated.
 
 If total > 0, skip product creation (idempotent).
 

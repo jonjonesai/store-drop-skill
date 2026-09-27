@@ -274,7 +274,7 @@ nodes:
     bash: |
       source "$STORE_DROP_ROOT/.archon/lib/bridge.sh"
       bridge_check_env || exit 1
-      PRODUCTS=$(bridge_get "/woo/products")
+      PRODUCTS=$(bridge_get "/woo/products?status=any")  # drafts are hidden without status=any
       PRODUCTS_JSON="$PRODUCTS" python3 - <<'PY'
       import json, os, re, sys
       d=json.loads(os.environ['PRODUCTS_JSON'])
