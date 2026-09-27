@@ -299,6 +299,13 @@ def run_archon(
     require_archon_version(executable)
     child_env = build_child_env(config.provider, current, dotenv, root)
     child_env["AI_MODEL"] = config.model
+    # Compiled Archon builds cannot discover provider CLIs on PATH; they need
+    # the explicit *_BIN_PATH or every AI node fails with "not found".
+    bin_setting = {"codex": "CODEX_BIN_PATH", "claude": "CLAUDE_BIN_PATH", "pi": "PI_BIN_PATH"}[config.provider]
+    if not child_env.get(bin_setting):
+        provider_bin = config.provider_executable({**dotenv, **current})
+        if provider_bin:
+            child_env[bin_setting] = os.path.realpath(provider_bin)
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".yaml") as handle:
         handle.write(make_run_config(config))
         handle.flush()
