@@ -176,7 +176,7 @@ if [ "$RESET_ENV" = 1 ] || [ ! -s .env ]; then
   echo
   say "===== Bridge credentials ====="
   echo "Go to WordPress: Settings → Mega Kadence Bridge"
-  echo "Click 'Copy Environment Variables', then paste below."
+  echo "Click "Copy as .env", then paste below."
   printf 'When done, press %sCtrl+D%s on a new line:\n' "$YELLOW" "$NC"
   echo
   cat > .env.tmp

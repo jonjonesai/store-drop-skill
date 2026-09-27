@@ -50,6 +50,7 @@ PROVIDER_ENV = {
         "ANTHROPIC_API_KEY",
         "ANTHROPIC_AUTH_TOKEN",
         "ANTHROPIC_OAUTH_TOKEN",
+        "CLAUDE_CODE_OAUTH_TOKEN",
     },
     "pi": {
         "PI_BIN_PATH",
@@ -160,7 +161,7 @@ class ProviderConfig:
         if self.provider == "claude":
             if any(
                 environ.get(key)
-                for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_OAUTH_TOKEN")
+                for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_OAUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN")
             ):
                 return True, "Claude authentication found"
             if self._cli_auth_ready(environ):

@@ -30,6 +30,13 @@ if [[ -z "${BRIDGE_URL:-}" || -z "${BRIDGE_PASS:-}" ]]; then
   STORE_DROP_TOKEN="$(python3 "$HERE/scripts/config-file.py" get "$HERE/.env" STORE_DROP_TOKEN)"
   export BRIDGE_URL BRIDGE_USER BRIDGE_PASS BRIDGE_SITE STORE_DROP_TOKEN
 fi
+# deploy.sh exports the bridge vars but not the token, so the block above is
+# skipped on the customer path. Read the token on its own or token mode never
+# engages and premium installs fall through to operator-only rclone.
+if [[ -z "${STORE_DROP_TOKEN:-}" && -s "$HERE/.env" ]]; then
+  STORE_DROP_TOKEN="$(python3 "$HERE/scripts/config-file.py" get "$HERE/.env" STORE_DROP_TOKEN)"
+  export STORE_DROP_TOKEN
+fi
 STORE_DROP_ROOT="$HERE"
 export STORE_DROP_ROOT
 # shellcheck disable=SC1091
