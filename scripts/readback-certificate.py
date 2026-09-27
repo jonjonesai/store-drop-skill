@@ -55,7 +55,7 @@ def main() -> int:
         result = bridge.request(f"/render?url={path}")
         page_status[path] = int(result.get("status", 0))
         rendered.append(re.sub(r"<[^>]+>", " ", str(result.get("html", ""))))
-    products_result = bridge.request("/woo/products")
+    products_result = bridge.request("/woo/products?status=any")
     products = products_result.get("products", products_result if isinstance(products_result, list) else [])
     forms_code = "global $wpdb; $t=$wpdb->prefix.'fluentform_forms'; return $wpdb->get_col(\"SELECT title FROM {$t}\");"
     forms_result = bridge.request("/wp-eval", {"code": forms_code})
